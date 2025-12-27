@@ -1,0 +1,42 @@
+### JetBrains (IntelliJ IDEA) ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/resources/archetype-resources/__projectName__.iml
+
+### Eclipse ###
+.settings/
+bin/
+.metadata/
+.classpath
+.project
+.factorypath
+
+### Visual Studio Code ###
+.vscode/
+
+### Build Tools (Maven/Gradle) ###
+target/
+build/
+.gradle/
+.nb-gradle/
+
+### Logging & Runtime ###
+*.log
+logs/
+temp/
+
+### OS Specific ###
+.DS_Store
+Thumbs.db
+
+### Configuration & Secrets ###
+# Ignore local environment overrides
+.env
+*.properties.local
+*.yml.local
+
+# Optional: Ignore sensitive properties if you aren't using environment variables
+# application-local.properties
