@@ -1,0 +1,6 @@
+package com.apexpay.userservice.dto.response;
+
+public record LoginResponse(
+        String accessToken, String refreshToken, String message
+) {
+}
