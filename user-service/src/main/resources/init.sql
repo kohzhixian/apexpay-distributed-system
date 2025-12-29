@@ -2,7 +2,7 @@ DROP TABLE IF EXISTS userservice.refresh_tokens;
 DROP TABLE IF EXISTS userservice.users;
 
 CREATE TABLE userservice.users(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
     username VARCHAR(255) UNIQUE NOT NULL,
     hashed_password TEXT NOT NULL, -- Used TEXT to avoid length issues
@@ -12,7 +12,7 @@ CREATE TABLE userservice.users(
 );
 
 CREATE TABLE userservice.refresh_tokens(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hashed_refresh_token TEXT NOT NULL,
     is_revoked BOOLEAN DEFAULT FALSE,
     user_id UUID NOT NULL,
