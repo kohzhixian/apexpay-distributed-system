@@ -1,33 +1,42 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
-
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
+### JetBrains (IntelliJ IDEA) ###
+.idea/
 *.iws
 *.iml
 *.ipr
+out/
+!**/src/main/resources/archetype-resources/__projectName__.iml
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+### Eclipse ###
+.settings/
+bin/
+.metadata/
+.classpath
+.project
+.factorypath
 
-### VS Code ###
+### Visual Studio Code ###
 .vscode/
+
+### Build Tools (Maven/Gradle) ###
+target/
+build/
+.gradle/
+.nb-gradle/
+
+### Logging & Runtime ###
+*.log
+logs/
+temp/
+
+### OS Specific ###
+.DS_Store
+Thumbs.db
+
+### Configuration & Secrets ###
+# Ignore local environment overrides
+.env
+*.properties.local
+*.yml.local
+
+# Optional: Ignore sensitive properties if you aren't using environment variables
+# application-local.properties

@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="acc1a40a-2fe3-4c31-b61a-82f61625075b" name="Changes" comment="chore: updated config files">
+      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/dictionaries/project.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/jarRepositories.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/api-gateway/HELP.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/discovery-server/HELP.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/user-service/SECURITY_IMPROVEMENTS.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api-gateway/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/api-gateway/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api-gateway/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/api-gateway/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discovery-server/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/discovery-server/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/controller/UserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/controller/UserController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/dto/request/LoginRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/dto/request/LoginRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/dto/request/RegisterRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/dto/request/RegisterRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/dto/response/LoginResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/dto/response/LoginResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/dto/response/RegisterResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/dto/response/RegisterResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/entity/UserPrincipal.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/entity/UserPrincipal.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/repository/RefreshtokenRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/repository/RefreshtokenRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/repository/UserRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/repository/UserRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/security/JwtAuthenticationFilter.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/security/JwtFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/security/JwtFilter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/security/JwtService.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/security/JwtService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/security/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/security/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/service/MyUserDetailsService.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/service/MyUserDetailsService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/java/com/apexpay/userservice/service/UserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/resources/application-local.properties" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/resources/application-local.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/user-service/src/main/resources/application.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/user-service/src/main/resources/application.yaml" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CompilerWorkspaceConfiguration">
+    <option name="MAKE_PROJECT_ON_SAVE" value="true" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Interface" />
+        <option value="Record" />
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="FormatOnSaveOptions">
+    <option name="myRunOnSave" value="true" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "kohzhixian"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/kohzhixian/apexpay-distributed-system.git",
+    "accountId": "0e9d9e7f-cae2-4e71-a4f7-cbe3336526f8"
+  }
+}]]></component>
+  <component name="OptimizeOnSaveOptions">
+    <option name="myRunOnSave" value="true" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 2
+}]]></component>
+  <component name="ProjectId" id="37Qimp9CIdy85kRjoJeN9wcx890" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.ApigatewayApplication.executor": "Run",
+    "Application.UserserviceApplication.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "code.cleanup.on.save": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultAutoModeForALLUsers.v1": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "main",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/kohzhixian/Documents/self-project/apexpay-distributed-system",
+    "rearrange.code.on.save": "true",
+    "settings.editor.selected.configurable": "actions.on.save",
+    "to.speed.mode.migration.done": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CreateClassDialog.RecentsKey">
+      <recent name="com.apexpay.userservice.security" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Application.UserserviceApplication">
+    <configuration name="ApigatewayApplication" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.apexpay.apigateway.ApigatewayApplication" />
+      <module name="apigateway" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.apexpay.apigateway.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="UserserviceApplication" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="com.apexpay.userservice.UserserviceApplication" />
+      <module name="userservice" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="com.apexpay.userservice.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Application.UserserviceApplication" />
+        <item itemvalue="Application.ApigatewayApplication" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.27397.103" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="acc1a40a-2fe3-4c31-b61a-82f61625075b" name="Changes" comment="" />
+      <created>1766841856406</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1766841856406</updated>
+    </task>
+    <task id="LOCAL-00001" summary="feat: created the entities for user and refreshtoken table. &#10;&#10;chore: create the sql for creating user and refreshtoken table">
+      <option name="closed" value="true" />
+      <created>1766882091609</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1766882091609</updated>
+    </task>
+    <task id="LOCAL-00002" summary="chore: created entity for refresh token and users.">
+      <option name="closed" value="true" />
+      <created>1767000950204</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1767000950204</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
+    <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="feat: created the entities for user and refreshtoken table. &#10;&#10;chore: create the sql for creating user and refreshtoken table" />
+    <MESSAGE value="chore: created entity for refresh token and users." />
+    <MESSAGE value="chore: updated config files" />
+    <option name="LAST_COMMIT_MESSAGE" value="chore: updated config files" />
+  </component>
+</project>
