@@ -9,17 +9,17 @@ import com.apexpay.userservice.dto.response.RegisterResponse;
 import com.apexpay.userservice.entity.RefreshTokens;
 import com.apexpay.userservice.entity.UserPrincipal;
 import com.apexpay.userservice.entity.Users;
+import com.apexpay.userservice.exception.BusinessException;
+import com.apexpay.userservice.exception.ErrorCode;
 import com.apexpay.userservice.repository.RefreshtokenRepository;
 import com.apexpay.userservice.repository.UserRepository;
 import com.apexpay.userservice.security.JwtFilter;
 import com.apexpay.userservice.security.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -28,7 +28,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -41,9 +41,10 @@ import java.util.UUID;
  * for secure authentication.
  * Implements refresh token rotation pattern for enhanced security.
  */
+@Slf4j
 @Service
 public class UserService {
-    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authManager;
@@ -82,33 +83,24 @@ public class UserService {
      * Registers a new user account.
      * Validates uniqueness of username and email, creates the user,
      * and sets HTTP-only access and refresh token cookies.
-     *
-     * @param registerRquest the registration details
-     * @param response       the HTTP response for setting cookies
-     * @param request        the HTTP request for extracting client IP
-     * @return registration confirmation response
-     * @throws ResponseStatusException if username or email already exists
      */
     @Transactional
-    public RegisterResponse register(RegisterRequest registerRquest, HttpServletResponse response,
+    public RegisterResponse register(RegisterRequest registerRequest, HttpServletResponse response,
             HttpServletRequest request) {
-        // Username - usually public/visible, safe to be specific
-        if (checkIfUsernameExist(registerRquest.username())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already taken.");
+        if (checkIfUsernameExist(registerRequest.username())) {
+            throw new BusinessException(ErrorCode.USERNAME_EXISTS, "Username already taken.");
         }
 
-        // Email - more sensitive, can use generic message OR specific with rate
-        // limiting
-        if (checkIfUserEmailExist(registerRquest.email())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered.");
+        if (checkIfUserEmailExist(registerRequest.email())) {
+            throw new BusinessException(ErrorCode.EMAIL_EXISTS, "Email already registered.");
         }
 
-        String encodedPassword = passwordEncoder.encode(registerRquest.password());
+        String encodedPassword = passwordEncoder.encode(registerRequest.password());
         UUID familyId = UUID.randomUUID();
         Users newUser = Users.builder()
-                .username(registerRquest.username())
+                .username(registerRequest.username())
                 .hashedPassword(encodedPassword)
-                .email(registerRquest.email())
+                .email(registerRequest.email())
                 .build();
 
         userRepository.save(newUser);
@@ -119,12 +111,6 @@ public class UserService {
     /**
      * Authenticates a user with email and password.
      * On success, generates and stores HTTP-only access and refresh token cookies.
-     *
-     * @param loginRequest the login credentials
-     * @param response     the HTTP response for setting cookies
-     * @param request      the HTTP request for extracting client IP
-     * @return login confirmation response
-     * @throws ResponseStatusException if authentication fails
      */
     @Transactional
     public LoginResponse login(LoginRequest loginRequest, HttpServletResponse response, HttpServletRequest request) {
@@ -133,25 +119,18 @@ public class UserService {
                     new UsernamePasswordAuthenticationToken(loginRequest.email(), loginRequest.password()));
 
             if (authentication.isAuthenticated()
-                    && authentication.getPrincipal() instanceof
-
-                    UserPrincipal(Users user)) {
+                    && authentication.getPrincipal() instanceof UserPrincipal(Users user)) {
                 UUID familyId = UUID.randomUUID();
-                // revoke all active refresh token on login
                 refreshtokenRepository.revokeAllRefreshTokensByUserId(user.getId());
                 generateAndStoreTokens(user, request, response, familyId);
                 return new LoginResponse("Login Success.");
             }
-
-        } catch (
-
-        AuthenticationException e) {
-            logger.error("Authentication failed: {}", e.getMessage());
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+        } catch (AuthenticationException e) {
+            log.error("Authentication failed: {}", e.getMessage());
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password.");
         }
 
-        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication failed.");
-
+        throw new BusinessException(ErrorCode.AUTHENTICATION_FAILED);
     }
 
     @Transactional
@@ -160,55 +139,55 @@ public class UserService {
         String ipAddress = request.getRemoteAddr();
 
         if (refreshTokenCookieText == null || refreshTokenCookieText.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token not found.");
+            throw new BusinessException(ErrorCode.TOKEN_MISSING, "Refresh token not found.");
         }
 
         RefreshTokenCookieText refreshTokenCookieTextObj = splitRefreshTokenCookieText(refreshTokenCookieText);
-        // check if refresh token has been consumed
+
+        // Check if refresh token has been consumed (potential token reuse attack)
         Optional<RefreshTokens> consumedRefreshToken = refreshtokenRepository
                 .findConsumedTokenById(refreshTokenCookieTextObj.refreshTokenId());
 
         if (consumedRefreshToken.isPresent()) {
-            logger.warn("Token reuse detected! FamilyId: {}, UserId: {}",
+            log.warn("Token reuse detected! FamilyId: {}, UserId: {}",
                     consumedRefreshToken.get().getFamilyId(),
                     consumedRefreshToken.get().getUser().getId());
             refreshTokenRevocationService.revokeTokenFamily(consumedRefreshToken.get().getFamilyId());
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token.");
+            throw new BusinessException(ErrorCode.TOKEN_REUSE_DETECTED, "Security alert: Token reuse detected.");
         }
 
-        // validate raw refresh token
+        // Validate refresh token
         RefreshTokens refreshToken = refreshtokenRepository
                 .findValidRefreshToken(refreshTokenCookieTextObj.refreshTokenId(), ipAddress)
                 .orElseThrow(() -> {
-                    logger.error("Invalid refresh token");
-                    return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token.");
+                    log.error("Invalid refresh token");
+                    return new BusinessException(ErrorCode.TOKEN_INVALID, "Invalid refresh token.");
                 });
 
         if (!passwordEncoder.matches(refreshTokenCookieTextObj.rawRefreshToken(),
                 refreshToken.getHashedRefreshToken())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token verification failed.");
+            throw new BusinessException(ErrorCode.TOKEN_INVALID, "Refresh token verification failed.");
         }
 
         Users user = refreshToken.getUser();
 
-        // refresh token used normally
+        // Mark token as consumed (rotation)
         refreshToken.setConsumed(true);
         refreshtokenRepository.save(refreshToken);
 
-        // generate access and refresh token and store them inside cookie
+        // Generate new access and refresh tokens
         generateAndStoreTokens(user, request, response, refreshToken.getFamilyId());
     }
 
     private void storeAccessTokenIntoHeader(String accessToken, HttpServletResponse response) {
         ResponseCookie accessTokenCookie = ResponseCookie.from("access_token", accessToken)
-                .httpOnly(true) // prevents XSS
-                .secure(cookieSecureValue) // prod env should set secure to true
-                .path("/") // available for all routes
-                .maxAge(jwtTimeout / 1000) // convert to seconds
-                .sameSite("Strict") // essential for csrf protection
+                .httpOnly(true)
+                .secure(cookieSecureValue)
+                .path("/")
+                .maxAge(jwtTimeout / 1000)
+                .sameSite("Strict")
                 .build();
 
-        // Add cookies to response
         response.addHeader(HttpHeaders.SET_COOKIE, accessTokenCookie.toString());
     }
 
@@ -217,29 +196,20 @@ public class UserService {
                 .httpOnly(true)
                 .secure(cookieSecureValue)
                 .path("/api/v1/auth/refresh")
-                .maxAge(refreshTokenTimeout / 1000) // convert to seconds
+                .maxAge(refreshTokenTimeout / 1000)
                 .sameSite("Strict")
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
     }
 
     private boolean checkIfUserEmailExist(String email) {
-        Users existingUser = userRepository.findByEmail(email);
-        return existingUser != null;
+        return userRepository.findByEmail(email) != null;
     }
 
     private boolean checkIfUsernameExist(String username) {
-        Users existingUser = userRepository.findByUsername(username);
-        return existingUser != null;
+        return userRepository.findByUsername(username) != null;
     }
 
-    /**
-     * Creates a new refresh token entity with hashed token for database storage.
-     *
-     * @param request the HTTP request for extracting client IP address
-     * @param user    the user to associate with the refresh token
-     * @return object containing both the entity (hashed) and raw token (for cookie)
-     */
     private RefreshTokenObj generateRefreshToken(HttpServletRequest request, Users user, UUID familyId) {
         String refreshToken = UUID.randomUUID().toString();
         String hashedRefreshToken = passwordEncoder.encode(refreshToken);
@@ -257,21 +227,11 @@ public class UserService {
         return new RefreshTokenObj(newRefreshToken, refreshToken);
     }
 
-    /**
-     * Generates both access and refresh tokens, persists refresh token to database,
-     * and stores both tokens in HTTP-only cookies.
-     *
-     * @param user     the authenticated user
-     * @param request  the HTTP request for extracting client IP
-     * @param response the HTTP response for setting cookies
-     */
     private void generateAndStoreTokens(Users user, HttpServletRequest request, HttpServletResponse response,
             UUID familyId) {
-        // Generate and store access token
         String accessToken = jwtService.generateToken(user);
         storeAccessTokenIntoHeader(accessToken, response);
 
-        // Generate, save and store refresh token
         RefreshTokenObj refreshTokenObj = generateRefreshToken(request, user, familyId);
         RefreshTokens refreshTokenResponse = refreshtokenRepository.save(refreshTokenObj.entity());
         String refreshTokenCookieText = refreshTokenResponse.getId().toString() + ":" + refreshTokenObj.refreshToken();
@@ -281,16 +241,16 @@ public class UserService {
     private RefreshTokenCookieText splitRefreshTokenCookieText(String refreshTokenCookieText) {
         String[] parts = refreshTokenCookieText.split(":", 2);
         if (parts.length != 2) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token format.");
+            throw new BusinessException(ErrorCode.TOKEN_INVALID, "Invalid refresh token format.");
         }
-        String refreshTokenIdString = parts[0];
+
         UUID refreshTokenId;
         try {
-            refreshTokenId = UUID.fromString(refreshTokenIdString);
+            refreshTokenId = UUID.fromString(parts[0]);
         } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token format.");
+            throw new BusinessException(ErrorCode.TOKEN_INVALID, "Invalid refresh token format.");
         }
-        String rawRefreshToken = parts[1];
-        return new RefreshTokenCookieText(refreshTokenId, rawRefreshToken);
+
+        return new RefreshTokenCookieText(refreshTokenId, parts[1]);
     }
 }
