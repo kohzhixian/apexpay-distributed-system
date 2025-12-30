@@ -1,5 +1,6 @@
 package com.apexpay.userservice.service;
 
+import com.apexpay.userservice.dto.RefreshTokenCookieText;
 import com.apexpay.userservice.dto.RefreshTokenObj;
 import com.apexpay.userservice.dto.request.LoginRequest;
 import com.apexpay.userservice.dto.request.RegisterRequest;
@@ -10,6 +11,7 @@ import com.apexpay.userservice.entity.UserPrincipal;
 import com.apexpay.userservice.entity.Users;
 import com.apexpay.userservice.repository.RefreshtokenRepository;
 import com.apexpay.userservice.repository.UserRepository;
+import com.apexpay.userservice.security.JwtFilter;
 import com.apexpay.userservice.security.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,14 +29,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Service handling user authentication operations including registration and login.
- * Manages JWT access tokens and refresh tokens with HTTP-only cookie storage for secure authentication.
+ * Service handling user authentication operations including registration and
+ * login.
+ * Manages JWT access tokens and refresh tokens with HTTP-only cookie storage
+ * for secure authentication.
  * Implements refresh token rotation pattern for enhanced security.
  */
 @Service
@@ -48,6 +52,7 @@ public class UserService {
     private final long jwtTimeout;
     private final long refreshTokenTimeout;
     private final boolean cookieSecureValue;
+    private final JwtFilter jwtFilter;
 
     public UserService(
             UserRepository userRepository,
@@ -55,9 +60,10 @@ public class UserService {
             JwtService jwtService,
             PasswordEncoder passwordEncoder,
             RefreshtokenRepository refreshtokenRepository,
-            @Value("${apexpay.jwt-timeout}")  long jwtTimeout,
+            @Value("${apexpay.jwt-timeout}") long jwtTimeout,
             @Value("${apexpay.refresh-token-timeout}") long refreshTokenTimeout,
-            @Value("${apexpay.cookie-secure-value}") boolean cookieSecureValue) {
+            @Value("${apexpay.cookie-secure-value}") boolean cookieSecureValue,
+            JwtFilter jwtFilter) {
         this.userRepository = userRepository;
         this.authManager = authManager;
         this.jwtService = jwtService;
@@ -66,6 +72,7 @@ public class UserService {
         this.jwtTimeout = jwtTimeout;
         this.refreshTokenTimeout = refreshTokenTimeout;
         this.cookieSecureValue = cookieSecureValue;
+        this.jwtFilter = jwtFilter;
     }
 
     /**
@@ -80,19 +87,21 @@ public class UserService {
      * @throws ResponseStatusException if username or email already exists
      */
     @Transactional
-    public RegisterResponse register(RegisterRequest registerRquest, HttpServletResponse response, HttpServletRequest request) {
+    public RegisterResponse register(RegisterRequest registerRquest, HttpServletResponse response,
+            HttpServletRequest request) {
         // Username - usually public/visible, safe to be specific
         if (checkIfUsernameExist(registerRquest.username())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already taken.");
         }
 
-        // Email - more sensitive, can use generic message OR specific with rate limiting
+        // Email - more sensitive, can use generic message OR specific with rate
+        // limiting
         if (checkIfUserEmailExist(registerRquest.email())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered.");
         }
 
         String encodedPassword = passwordEncoder.encode(registerRquest.password());
-
+        UUID familyId = UUID.randomUUID();
         Users newUser = Users.builder()
                 .username(registerRquest.username())
                 .hashedPassword(encodedPassword)
@@ -100,7 +109,7 @@ public class UserService {
                 .build();
 
         userRepository.save(newUser);
-        generateAndStoreTokens(newUser, request, response);
+        generateAndStoreTokens(newUser, request, response, familyId);
         return new RegisterResponse("Registration was completed successfully.");
     }
 
@@ -120,20 +129,69 @@ public class UserService {
             Authentication authentication = authManager.authenticate(
                     new UsernamePasswordAuthenticationToken(loginRequest.email(), loginRequest.password()));
 
-            if (authentication.isAuthenticated() && authentication.getPrincipal() instanceof UserPrincipal(
-                    Users user
-            )) {
-                generateAndStoreTokens(user, request, response);
+            if (authentication.isAuthenticated()
+                    && authentication.getPrincipal() instanceof
+
+                    UserPrincipal(Users user)) {
+                UUID familyId = UUID.randomUUID();
+                generateAndStoreTokens(user, request, response, familyId);
                 return new LoginResponse("Login Success.");
             }
 
-        } catch (AuthenticationException e) {
+        } catch (
+
+        AuthenticationException e) {
             logger.error("Authentication failed: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication failed.");
 
+    }
+
+    @Transactional
+    public void refresh(HttpServletRequest request, HttpServletResponse response) {
+        String refreshTokenCookieText = jwtFilter.getCookieValue(request, "refresh_token");
+        String ipAddress = request.getRemoteAddr();
+
+        if (refreshTokenCookieText == null || refreshTokenCookieText.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token not found.");
+        }
+
+        RefreshTokenCookieText refreshTokenCookieTextObj = splitRefreshTokenCookieText(refreshTokenCookieText);
+        // check if refresh token has been consumed
+        Optional<RefreshTokens> consumedRefreshToken = refreshtokenRepository
+                .findConsumedTokenById(refreshTokenCookieTextObj.refreshTokenId());
+
+        if (consumedRefreshToken.isPresent()) {
+            logger.warn("Token reuse detected! FamilyId: {}, UserId: {}",
+                    consumedRefreshToken.get().getFamilyId(),
+                    consumedRefreshToken.get().getUser().getId());
+            refreshtokenRepository.revokeAllRefreshTokens(consumedRefreshToken.get().getFamilyId());
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token.");
+        }
+
+        // validate raw refresh token
+        RefreshTokens refreshToken = refreshtokenRepository
+                .findValidRefreshToken(refreshTokenCookieTextObj.refreshTokenId(), ipAddress)
+                .orElseThrow(() -> {
+                    logger.error("Invalid refresh token");
+                    return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token.");
+                });
+
+        if (!passwordEncoder.matches(refreshTokenCookieTextObj.rawRefreshToken(),
+                refreshToken.getHashedRefreshToken())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token verification failed.");
+        }
+
+        Users user = refreshToken.getUser();
+
+        // update old refresh token is revoked to true and consumed to true and save
+        // back into database
+        revokeRefreshToken(refreshToken);
+
+        // generate access and refresh token and store them inside cookie
+        generateAndStoreTokens(user, request, response, refreshToken.getFamilyId());
     }
 
     private void storeAccessTokenIntoHeader(String accessToken, HttpServletResponse response) {
@@ -149,12 +207,11 @@ public class UserService {
         response.addHeader(HttpHeaders.SET_COOKIE, accessTokenCookie.toString());
     }
 
-
-    private void storeRefreshTokenIntoHeader(String refreshToken, HttpServletResponse response){
+    private void storeRefreshTokenIntoHeader(String refreshToken, HttpServletResponse response) {
         ResponseCookie refreshTokenCookie = ResponseCookie.from("refresh_token", refreshToken)
                 .httpOnly(true)
                 .secure(cookieSecureValue)
-                .path("/refresh")
+                .path("/api/v1/auth/refresh")
                 .maxAge(refreshTokenTimeout / 1000) // convert to seconds
                 .sameSite("Strict")
                 .build();
@@ -178,7 +235,7 @@ public class UserService {
      * @param user    the user to associate with the refresh token
      * @return object containing both the entity (hashed) and raw token (for cookie)
      */
-    private RefreshTokenObj generateRefreshToken(HttpServletRequest request, Users user) {
+    private RefreshTokenObj generateRefreshToken(HttpServletRequest request, Users user, UUID familyId) {
         String refreshToken = UUID.randomUUID().toString();
         String hashedRefreshToken = passwordEncoder.encode(refreshToken);
         String ipAddress = request.getRemoteAddr();
@@ -189,6 +246,7 @@ public class UserService {
                 .user(user)
                 .ipAddress(ipAddress)
                 .expiryDate(expiryDate)
+                .familyId(familyId)
                 .build();
 
         return new RefreshTokenObj(newRefreshToken, refreshToken);
@@ -202,14 +260,38 @@ public class UserService {
      * @param request  the HTTP request for extracting client IP
      * @param response the HTTP response for setting cookies
      */
-    private void generateAndStoreTokens(Users user, HttpServletRequest request, HttpServletResponse response) {
+    private void generateAndStoreTokens(Users user, HttpServletRequest request, HttpServletResponse response,
+            UUID familyId) {
         // Generate and store access token
         String accessToken = jwtService.generateToken(user);
         storeAccessTokenIntoHeader(accessToken, response);
 
         // Generate, save and store refresh token
-        RefreshTokenObj refreshTokenObj = generateRefreshToken(request, user);
-        refreshtokenRepository.save(refreshTokenObj.entity());
-        storeRefreshTokenIntoHeader(refreshTokenObj.refreshToken(), response);
+        RefreshTokenObj refreshTokenObj = generateRefreshToken(request, user, familyId);
+        RefreshTokens refreshTokenResponse = refreshtokenRepository.save(refreshTokenObj.entity());
+        String refreshTokenCookieText = refreshTokenResponse.getId().toString() + ":" + refreshTokenObj.refreshToken();
+        storeRefreshTokenIntoHeader(refreshTokenCookieText, response);
+    }
+
+    private void revokeRefreshToken(RefreshTokens refreshToken) {
+        refreshToken.setRevoked(true);
+        refreshToken.setConsumed(true);
+        refreshtokenRepository.save(refreshToken);
+    }
+
+    private RefreshTokenCookieText splitRefreshTokenCookieText(String refreshTokenCookieText) {
+        String[] parts = refreshTokenCookieText.split(":", 2);
+        if (parts.length != 2) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token format.");
+        }
+        String refreshTokenIdString = parts[0];
+        UUID refreshTokenId;
+        try {
+            refreshTokenId = UUID.fromString(refreshTokenIdString);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token format.");
+        }
+        String rawRefreshToken = parts[1];
+        return new RefreshTokenCookieText(refreshTokenId, rawRefreshToken);
     }
 }

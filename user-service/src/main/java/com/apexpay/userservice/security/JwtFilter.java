@@ -69,7 +69,7 @@ public class JwtFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private String getCookieValue(HttpServletRequest request, String cookieName) {
+    public String getCookieValue(HttpServletRequest request, String cookieName) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) return null;
 

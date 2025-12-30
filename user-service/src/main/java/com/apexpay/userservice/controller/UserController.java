@@ -26,8 +26,7 @@ public class UserController {
     private final UserService userService;
 
     public UserController(
-            UserService userService
-    ) {
+            UserService userService) {
         this.userService = userService;
     }
 
@@ -41,7 +40,8 @@ public class UserController {
      * @return registration confirmation with HTTP 201 status
      */
     @PostMapping("/register")
-    public ResponseEntity<@NonNull RegisterResponse> register(@RequestBody @Valid RegisterRequest registerRequest, HttpServletResponse response, HttpServletRequest request) {
+    public ResponseEntity<@NonNull RegisterResponse> register(@RequestBody @Valid RegisterRequest registerRequest,
+            HttpServletResponse response, HttpServletRequest request) {
         RegisterResponse registerResponse = userService.register(registerRequest, response, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(registerResponse);
     }
@@ -56,8 +56,15 @@ public class UserController {
      * @return login confirmation with HTTP 200 status
      */
     @PostMapping("/login")
-    public ResponseEntity<@NonNull LoginResponse> login(@RequestBody @Valid LoginRequest loginRequest, HttpServletResponse response, HttpServletRequest request) {
+    public ResponseEntity<@NonNull LoginResponse> login(@RequestBody @Valid LoginRequest loginRequest,
+            HttpServletResponse response, HttpServletRequest request) {
         LoginResponse loginResponse = userService.login(loginRequest, response, request);
         return ResponseEntity.ok(loginResponse);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<@NonNull String> refresh(HttpServletRequest request, HttpServletResponse response) {
+        userService.refresh(request, response);
+        return ResponseEntity.ok("Token refreshed successfully.");
     }
 }
