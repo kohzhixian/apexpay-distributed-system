@@ -5,6 +5,7 @@ import com.apexpay.userservice.dto.request.RegisterRequest;
 import com.apexpay.userservice.dto.response.LoginResponse;
 import com.apexpay.userservice.dto.response.RegisterResponse;
 import com.apexpay.userservice.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.NonNull;
@@ -32,29 +33,31 @@ public class UserController {
 
     /**
      * Registers a new user account.
-     * Sets an HTTP-only access token cookie upon successful registration.
+     * Sets HTTP-only access and refresh token cookies upon successful registration.
      *
-     * @param request  the registration details (email, username, password)
-     * @param response the HTTP response for setting cookies
+     * @param registerRequest the registration details (email, username, password)
+     * @param response        the HTTP response for setting cookies
+     * @param request         the HTTP request for extracting client IP
      * @return registration confirmation with HTTP 201 status
      */
     @PostMapping("/register")
-    public ResponseEntity<@NonNull RegisterResponse> register(@RequestBody @Valid RegisterRequest request, HttpServletResponse response) {
-        RegisterResponse registerResponse = userService.register(request, response);
+    public ResponseEntity<@NonNull RegisterResponse> register(@RequestBody @Valid RegisterRequest registerRequest, HttpServletResponse response, HttpServletRequest request) {
+        RegisterResponse registerResponse = userService.register(registerRequest, response, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(registerResponse);
     }
 
     /**
      * Authenticates a user and initiates a session.
-     * Sets an HTTP-only access token cookie upon successful login.
+     * Sets HTTP-only access and refresh token cookies upon successful login.
      *
-     * @param request  the login credentials (email, password)
-     * @param response the HTTP response for setting cookies
+     * @param loginRequest the login credentials (email, password)
+     * @param response     the HTTP response for setting cookies
+     * @param request      the HTTP request for extracting client IP
      * @return login confirmation with HTTP 200 status
      */
     @PostMapping("/login")
-    public ResponseEntity<@NonNull LoginResponse> login(@RequestBody @Valid LoginRequest request, HttpServletResponse response) {
-        LoginResponse loginResponse = userService.login(request, response);
+    public ResponseEntity<@NonNull LoginResponse> login(@RequestBody @Valid LoginRequest loginRequest, HttpServletResponse response, HttpServletRequest request) {
+        LoginResponse loginResponse = userService.login(loginRequest, response, request);
         return ResponseEntity.ok(loginResponse);
     }
 }

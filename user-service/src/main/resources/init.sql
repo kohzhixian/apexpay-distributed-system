@@ -16,7 +16,10 @@ CREATE TABLE userservice.refresh_tokens(
     hashed_refresh_token TEXT NOT NULL,
     is_revoked BOOLEAN DEFAULT FALSE,
     user_id UUID NOT NULL,
+    family_id UUID DEFAULT gen_random_uuid(),
+    consumed BOOLEAN DEFAULT FALSE, 
     expiry_date TIMESTAMPTZ NOT NULL,
+    ip_address INET NOT NULL,
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
