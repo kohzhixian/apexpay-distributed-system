@@ -11,7 +11,8 @@ import java.util.UUID;
 /**
  * Entity representing a refresh token for JWT authentication.
  * Supports token rotation with family tracking to detect token reuse attacks.
- * Each token belongs to a family (familyId) to enable cascade revocation on suspicious activity.
+ * Each token belongs to a family (familyId) to enable cascade revocation on
+ * suspicious activity.
  */
 @Builder
 @Getter

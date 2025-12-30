@@ -19,7 +19,7 @@ CREATE TABLE userservice.refresh_tokens(
     family_id UUID DEFAULT gen_random_uuid(),
     consumed BOOLEAN DEFAULT FALSE, 
     expiry_date TIMESTAMPTZ NOT NULL,
-    ip_address INET NOT NULL,
+    ip_address VARCHAR(45) NOT NULL,
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
