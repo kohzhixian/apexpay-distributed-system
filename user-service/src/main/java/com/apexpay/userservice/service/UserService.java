@@ -134,6 +134,8 @@ public class UserService {
 
                     UserPrincipal(Users user)) {
                 UUID familyId = UUID.randomUUID();
+                // revoke all active refresh token on login
+                refreshtokenRepository.revokedAllRefreshTokensByUserId(user.getId());
                 generateAndStoreTokens(user, request, response, familyId);
                 return new LoginResponse("Login Success.");
             }
@@ -167,7 +169,7 @@ public class UserService {
             logger.warn("Token reuse detected! FamilyId: {}, UserId: {}",
                     consumedRefreshToken.get().getFamilyId(),
                     consumedRefreshToken.get().getUser().getId());
-            refreshtokenRepository.revokeAllRefreshTokens(consumedRefreshToken.get().getFamilyId());
+            refreshtokenRepository.revokeAllRefreshTokensByFamilyId(consumedRefreshToken.get().getFamilyId());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token.");
         }
 
@@ -186,9 +188,9 @@ public class UserService {
 
         Users user = refreshToken.getUser();
 
-        // update old refresh token is revoked to true and consumed to true and save
-        // back into database
-        revokeRefreshToken(refreshToken);
+        // refresh token used normally
+        refreshToken.setConsumed(true);
+        refreshtokenRepository.save(refreshToken);
 
         // generate access and refresh token and store them inside cookie
         generateAndStoreTokens(user, request, response, refreshToken.getFamilyId());
@@ -271,12 +273,6 @@ public class UserService {
         RefreshTokens refreshTokenResponse = refreshtokenRepository.save(refreshTokenObj.entity());
         String refreshTokenCookieText = refreshTokenResponse.getId().toString() + ":" + refreshTokenObj.refreshToken();
         storeRefreshTokenIntoHeader(refreshTokenCookieText, response);
-    }
-
-    private void revokeRefreshToken(RefreshTokens refreshToken) {
-        refreshToken.setRevoked(true);
-        refreshToken.setConsumed(true);
-        refreshtokenRepository.save(refreshToken);
     }
 
     private RefreshTokenCookieText splitRefreshTokenCookieText(String refreshTokenCookieText) {
