@@ -53,6 +53,7 @@ public class UserService {
     private final long refreshTokenTimeout;
     private final boolean cookieSecureValue;
     private final JwtFilter jwtFilter;
+    private final RefreshTokenRevocationService refreshTokenRevocationService;
 
     public UserService(
             UserRepository userRepository,
@@ -63,6 +64,7 @@ public class UserService {
             @Value("${apexpay.jwt-timeout}") long jwtTimeout,
             @Value("${apexpay.refresh-token-timeout}") long refreshTokenTimeout,
             @Value("${apexpay.cookie-secure-value}") boolean cookieSecureValue,
+            RefreshTokenRevocationService refreshTokenRevocationService,
             JwtFilter jwtFilter) {
         this.userRepository = userRepository;
         this.authManager = authManager;
@@ -73,6 +75,7 @@ public class UserService {
         this.refreshTokenTimeout = refreshTokenTimeout;
         this.cookieSecureValue = cookieSecureValue;
         this.jwtFilter = jwtFilter;
+        this.refreshTokenRevocationService = refreshTokenRevocationService;
     }
 
     /**
@@ -135,7 +138,7 @@ public class UserService {
                     UserPrincipal(Users user)) {
                 UUID familyId = UUID.randomUUID();
                 // revoke all active refresh token on login
-                refreshtokenRepository.revokedAllRefreshTokensByUserId(user.getId());
+                refreshtokenRepository.revokeAllRefreshTokensByUserId(user.getId());
                 generateAndStoreTokens(user, request, response, familyId);
                 return new LoginResponse("Login Success.");
             }
@@ -169,7 +172,7 @@ public class UserService {
             logger.warn("Token reuse detected! FamilyId: {}, UserId: {}",
                     consumedRefreshToken.get().getFamilyId(),
                     consumedRefreshToken.get().getUser().getId());
-            refreshtokenRepository.revokeAllRefreshTokensByFamilyId(consumedRefreshToken.get().getFamilyId());
+            refreshTokenRevocationService.revokeTokenFamily(consumedRefreshToken.get().getFamilyId());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token.");
         }
 
@@ -199,7 +202,7 @@ public class UserService {
     private void storeAccessTokenIntoHeader(String accessToken, HttpServletResponse response) {
         ResponseCookie accessTokenCookie = ResponseCookie.from("access_token", accessToken)
                 .httpOnly(true) // prevents XSS
-                .secure(cookieSecureValue) // only sent over HTTPs (using false for localhost)
+                .secure(cookieSecureValue) // prod env should set secure to true
                 .path("/") // available for all routes
                 .maxAge(jwtTimeout / 1000) // convert to seconds
                 .sameSite("Strict") // essential for csrf protection

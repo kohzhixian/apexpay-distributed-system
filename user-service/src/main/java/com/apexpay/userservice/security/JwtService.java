@@ -26,12 +26,10 @@ public class JwtService {
 
     public JwtService(
             @Value("${apexpay.jwt-secret-key}") String jwtSecretKey,
-            @Value("${apexpay.jwt-timeout}") long jwtTimeout
-    ) {
+            @Value("${apexpay.jwt-timeout}") long jwtTimeout) {
         this.jwtSecretKey = jwtSecretKey;
         this.jwtTimeout = jwtTimeout;
     }
-
 
     /**
      * Generates a JWT access token for the given user.
@@ -93,6 +91,9 @@ public class JwtService {
      */
     public boolean validateToken(String token, UserDetails userDetails) {
         final String username = extractUserName(token);
+        if (username == null) {
+            return false;
+        }
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 
