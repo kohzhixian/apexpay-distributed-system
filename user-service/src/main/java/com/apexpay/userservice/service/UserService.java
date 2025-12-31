@@ -162,7 +162,17 @@ public class UserService {
             log.warn("Token reuse detected! FamilyId: {}, UserId: {}",
                     refreshToken.getFamilyId(),
                     refreshToken.getUser().getId());
-            refreshTokenRevocationService.revokeTokenFamily(refreshToken.getFamilyId());
+
+            // Revoke all OTHER tokens in family (excludes current to avoid deadlock)
+            // The REQUIRES_NEW transaction would block on our locked row otherwise
+            refreshTokenRevocationService.revokeTokenFamilyExcluding(
+                    refreshToken.getFamilyId(),
+                    refreshToken.getId());
+
+            // Mark current token as revoked in this transaction (we hold the lock)
+            refreshToken.setRevoked(true);
+            refreshtokenRepository.save(refreshToken);
+
             throw new BusinessException(ErrorCode.TOKEN_REUSE_DETECTED, "Security alert: Token reuse detected.");
         }
 

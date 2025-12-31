@@ -24,4 +24,15 @@ public class RefreshTokenRevocationService {
     public void revokeTokenFamily(UUID familyId) {
         refreshtokenRepository.revokeAllRefreshTokensByFamilyId(familyId);
     }
+
+    /**
+     * Revokes all tokens in a family except the specified token.
+     * Use this when the excluded token is already locked by the calling transaction
+     * to avoid deadlock (REQUIRES_NEW creates separate connection that would block
+     * on the lock).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void revokeTokenFamilyExcluding(UUID familyId, UUID excludeTokenId) {
+        refreshtokenRepository.revokeAllRefreshTokensByFamilyIdExcluding(familyId, excludeTokenId);
+    }
 }
