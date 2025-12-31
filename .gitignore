@@ -38,5 +38,12 @@ Thumbs.db
 *.properties.local
 *.yml.local
 
+# RSA keys for JWT (never commit!)
+**/keys/*.pem
+**/keys/*.key
+
+# Scripts folder
+**/scripts/
+
 # Optional: Ignore sensitive properties if you aren't using environment variables
 # application-local.properties
