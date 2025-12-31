@@ -116,21 +116,35 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration);
     }
 
-    /** Loads RSA private key from PEM file */
+    /**
+     * Loads RSA private key from PEM file.
+     * Only PKCS#8 format (-----BEGIN PRIVATE KEY-----) is supported.
+     * To convert PKCS#1 to PKCS#8: openssl pkcs8 -topk8 -nocrypt -in key.pem -out
+     * key-pkcs8.pem
+     */
     private PrivateKey loadPrivateKey(Resource resource) {
         try {
-            String key = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            String privateKeyPEM = key
-                    .replace("-----BEGIN RSA PRIVATE KEY-----", "")
+            String pem = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+            if (pem.contains("-----BEGIN RSA PRIVATE KEY-----")) {
+                throw new IllegalStateException(
+                        "PKCS#1 format (-----BEGIN RSA PRIVATE KEY-----) is not supported. " +
+                                "Please convert to PKCS#8 using: openssl pkcs8 -topk8 -nocrypt -in key.pem -out key-pkcs8.pem");
+            }
+
+            if (!pem.contains("-----BEGIN PRIVATE KEY-----")) {
+                throw new IllegalStateException(
+                        "Invalid private key format. Expected PKCS#8 (-----BEGIN PRIVATE KEY-----)");
+            }
+
+            String base64 = pem
                     .replace("-----BEGIN PRIVATE KEY-----", "")
-                    .replace("-----END RSA PRIVATE KEY-----", "")
                     .replace("-----END PRIVATE KEY-----", "")
                     .replaceAll("\\s", "");
 
-            byte[] keyBytes = Base64.getDecoder().decode(privateKeyPEM);
-            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+            byte[] keyBytes = Base64.getDecoder().decode(base64);
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-            return keyFactory.generatePrivate(keySpec);
+            return keyFactory.generatePrivate(new PKCS8EncodedKeySpec(keyBytes));
         } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
             throw new IllegalStateException("Failed to load private key", e);
         }

@@ -31,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -133,6 +132,11 @@ public class UserService {
         throw new BusinessException(ErrorCode.AUTHENTICATION_FAILED);
     }
 
+    /**
+     * Refreshes access and refresh tokens using token rotation pattern.
+     * Uses pessimistic locking (SELECT FOR UPDATE) to prevent race conditions
+     * where concurrent requests could bypass token consumption checks.
+     */
     @Transactional
     public void refresh(HttpServletRequest request, HttpServletResponse response) {
         String refreshTokenCookieText = jwtFilter.getCookieValue(request, "refresh_token");
@@ -144,25 +148,27 @@ public class UserService {
 
         RefreshTokenCookieText refreshTokenCookieTextObj = splitRefreshTokenCookieText(refreshTokenCookieText);
 
-        // Check if refresh token has been consumed (potential token reuse attack)
-        Optional<RefreshTokens> consumedRefreshToken = refreshtokenRepository
-                .findConsumedTokenById(refreshTokenCookieTextObj.refreshTokenId());
-
-        if (consumedRefreshToken.isPresent()) {
-            log.warn("Token reuse detected! FamilyId: {}, UserId: {}",
-                    consumedRefreshToken.get().getFamilyId(),
-                    consumedRefreshToken.get().getUser().getId());
-            refreshTokenRevocationService.revokeTokenFamily(consumedRefreshToken.get().getFamilyId());
-            throw new BusinessException(ErrorCode.TOKEN_REUSE_DETECTED, "Security alert: Token reuse detected.");
-        }
-
-        // Validate refresh token
+        // Single atomic fetch with pessimistic lock - prevents race condition
+        // Second concurrent request will block until this transaction completes
         RefreshTokens refreshToken = refreshtokenRepository
-                .findValidRefreshToken(refreshTokenCookieTextObj.refreshTokenId(), ipAddress)
+                .findByIdAndIpAddressForUpdate(refreshTokenCookieTextObj.refreshTokenId(), ipAddress)
                 .orElseThrow(() -> {
                     log.error("Invalid refresh token");
                     return new BusinessException(ErrorCode.TOKEN_INVALID, "Invalid refresh token.");
                 });
+
+        // Check token states AFTER acquiring lock
+        if (refreshToken.isConsumed()) {
+            log.warn("Token reuse detected! FamilyId: {}, UserId: {}",
+                    refreshToken.getFamilyId(),
+                    refreshToken.getUser().getId());
+            refreshTokenRevocationService.revokeTokenFamily(refreshToken.getFamilyId());
+            throw new BusinessException(ErrorCode.TOKEN_REUSE_DETECTED, "Security alert: Token reuse detected.");
+        }
+
+        if (refreshToken.isRevoked() || refreshToken.getExpiryDate().isBefore(Instant.now())) {
+            throw new BusinessException(ErrorCode.TOKEN_INVALID, "Refresh token expired or revoked.");
+        }
 
         if (!passwordEncoder.matches(refreshTokenCookieTextObj.rawRefreshToken(),
                 refreshToken.getHashedRefreshToken())) {
@@ -171,7 +177,7 @@ public class UserService {
 
         Users user = refreshToken.getUser();
 
-        // Mark token as consumed (rotation)
+        // Mark token as consumed (rotation) - still inside the lock
         refreshToken.setConsumed(true);
         refreshtokenRepository.save(refreshToken);
 

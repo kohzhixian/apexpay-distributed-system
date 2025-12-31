@@ -1,8 +1,10 @@
 package com.apexpay.userservice.repository;
 
 import com.apexpay.userservice.entity.RefreshTokens;
+import jakarta.persistence.LockModeType;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,6 +24,17 @@ public interface RefreshtokenRepository extends JpaRepository<@NonNull RefreshTo
 
     @Query("SELECT rt FROM RefreshTokens rt JOIN FETCH rt.user WHERE rt.id = :id AND rt.consumed = true")
     Optional<RefreshTokens> findConsumedTokenById(@Param("id") UUID id);
+
+    /**
+     * Fetches refresh token with pessimistic lock to prevent race conditions during
+     * token rotation.
+     * The SELECT FOR UPDATE lock blocks concurrent transactions until this one
+     * completes.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT rt FROM RefreshTokens rt JOIN FETCH rt.user WHERE rt.id = :refreshTokenId AND rt.ipAddress = :ipAddress")
+    Optional<RefreshTokens> findByIdAndIpAddressForUpdate(@Param("refreshTokenId") UUID refreshTokenId,
+            @Param("ipAddress") String ipAddress);
 
     @Modifying
     @Query("UPDATE RefreshTokens rt SET rt.isRevoked = true, rt.consumed = true WHERE rt.familyId = :familyId")

@@ -21,7 +21,8 @@ public class GlobalExceptionHandler {
      * This is the primary handler for application-specific errors.
      */
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<@NonNull ErrorResponse> handleBusinessException(BusinessException ex, HttpServletRequest request) {
+    public ResponseEntity<@NonNull ErrorResponse> handleBusinessException(BusinessException ex,
+            HttpServletRequest request) {
         log.error("Business error [{}]: {}", ex.getErrorCode().getCode(), ex.getMessage());
         return buildResponse(ex.getErrorCode(), ex.getMessage(), request);
     }
@@ -46,13 +47,14 @@ public class GlobalExceptionHandler {
     /**
      * Handles Spring Security's BadCredentialsException (thrown by
      * AuthenticationManager).
+     * Returns generic "Invalid credentials" to prevent user enumeration attacks.
      */
     @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
     public ResponseEntity<@NonNull ErrorResponse> handleSpringBadCredentials(
             org.springframework.security.authentication.BadCredentialsException ex,
             HttpServletRequest request) {
         log.warn("Spring Security authentication failed: {}", ex.getMessage());
-        return buildResponse(ErrorCode.INVALID_CREDENTIALS, ex.getMessage(), request);
+        return buildResponse(ErrorCode.INVALID_CREDENTIALS, "Invalid credentials", request);
     }
 
     /**
@@ -102,7 +104,8 @@ public class GlobalExceptionHandler {
     /**
      * Helper to build response using explicit HttpStatus (for Spring exceptions)
      */
-    private ResponseEntity<@NonNull ErrorResponse> buildResponse(HttpStatus status, int code, String error, String message,
+    private ResponseEntity<@NonNull ErrorResponse> buildResponse(HttpStatus status, int code, String error,
+            String message,
             HttpServletRequest request) {
         ErrorResponse response = new ErrorResponse(status.value(), code, error, message, request.getRequestURI());
         return new ResponseEntity<>(response, status);
