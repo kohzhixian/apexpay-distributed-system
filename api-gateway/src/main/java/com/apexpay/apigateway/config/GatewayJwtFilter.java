@@ -16,6 +16,7 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -154,7 +155,8 @@ public class GatewayJwtFilter implements WebFilter {
     }
 
     private PublicKey loadPublicKey(Resource resource) {
-        try {
+        // prevents file desciptor leaks for classpath resources and connection leaks
+        try (InputStream inputStream = resource.getInputStream()) {
             String key = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             String publicKeyPEM = key
                     .replace("-----BEGIN PUBLIC KEY-----", "")
