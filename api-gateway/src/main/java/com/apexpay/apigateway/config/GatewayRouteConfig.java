@@ -13,17 +13,25 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GatewayRouteConfig {
 
-        @Bean
-        public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
-                return builder.routes()
-                                // Route for User service - Auth endpoints
-                                .route("user-service-auth", r -> r
-                                                .path("/api/v1/auth/**")
-                                                .filters(f -> f
-                                                                .circuitBreaker(config -> config
-                                                                                .setName("userserviceCB")
-                                                                                .setFallbackUri("forward:/user-fallback")))
-                                                .uri("lb://userservice"))
-                                .build();
-        }
+    @Bean
+    public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
+        return builder.routes()
+                // Route for User service - Auth endpoints
+                .route("user-service-auth", r -> r
+                        .path("/api/v1/auth/**")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("userserviceCB")
+                                        .setFallbackUri("forward:/user-fallback")))
+                        .uri("lb://userservice"))
+
+                .route("test", r -> r
+                        .path("/api/v1/test")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("userserviceCB")
+                                        .setFallbackUri("forward:/user-fallback")))
+                        .uri("lb://userservice"))
+                .build();
+    }
 }
