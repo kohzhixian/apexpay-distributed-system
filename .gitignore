@@ -38,12 +38,14 @@ Thumbs.db
 *.properties.local
 *.yml.local
 
+# Ignore application-local config files (contain sensitive credentials)
+**/application-local.yaml
+**/application-local.yml
+**/application-local.properties
+
 # RSA keys for JWT (never commit!)
 **/keys/*.pem
 **/keys/*.key
 
 # Scripts folder
 **/scripts/
-
-# Optional: Ignore sensitive properties if you aren't using environment variables
-# application-local.properties
