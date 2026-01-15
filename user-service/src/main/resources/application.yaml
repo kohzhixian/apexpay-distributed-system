@@ -1,8 +1,33 @@
 spring:
+  application:
+    name: userservice
+  main:
+    banner-mode: off
+  profiles:
+    active: local
   datasource:
-    url: jdbc:postgresql://localhost:5432/apexpay_userservice
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: ${DB_DRIVER}
 
+server:
+  port: ${SERVER_PORT}
 
 eureka:
   client:
-    enabled: false
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL}
+
+apexpay:
+  jwt-timeout: ${JWT_TIMEOUT}
+  refresh-token-timeout: ${REFRESH_TOKEN_TIMEOUT}
+  cookie-secure-value: ${COOKIE_SECURE_VALUE}
+  jwt:
+    private-key: ${PRIVATE_KEY_PATH}
+    public-key: ${PUBLIC_KEY_PATH}
+
+logging:
+  level:
+    com.netflix.discovery: DEBUG
+    com.netflix.eureka: DEBUG

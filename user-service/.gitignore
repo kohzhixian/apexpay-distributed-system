@@ -38,5 +38,7 @@ Thumbs.db
 *.properties.local
 *.yml.local
 
-# Optional: Ignore sensitive properties if you aren't using environment variables
-# application-local.properties
+# Ignore application-local config files (contain sensitive credentials)
+application-local.yaml
+application-local.yml
+application-local.properties
