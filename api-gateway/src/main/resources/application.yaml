@@ -1,0 +1,50 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: api-gateway
+  main:
+    banner-mode: OFF
+    web-application-type: reactive
+  profiles:
+    active: local
+
+# Expose Gateway's own actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# Circuit Breaker configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      userserviceCB:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+  timelimiter:
+    instances:
+      userserviceCB:
+        timeoutDuration: 10s
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+
+apexpay:
+  jwt:
+    public-key: classpath:keys/public.pem

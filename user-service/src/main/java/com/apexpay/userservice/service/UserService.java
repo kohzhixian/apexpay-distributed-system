@@ -13,8 +13,8 @@ import com.apexpay.userservice.exception.BusinessException;
 import com.apexpay.userservice.exception.ErrorCode;
 import com.apexpay.userservice.repository.RefreshtokenRepository;
 import com.apexpay.userservice.repository.UserRepository;
-import com.apexpay.userservice.security.JwtFilter;
 import com.apexpay.userservice.security.JwtService;
+import com.apexpay.userservice.utils.CookieUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -52,8 +52,8 @@ public class UserService {
     private final long jwtTimeout;
     private final long refreshTokenTimeout;
     private final boolean cookieSecureValue;
-    private final JwtFilter jwtFilter;
     private final RefreshTokenRevocationService refreshTokenRevocationService;
+    private final CookieUtils cookieUtils;
 
     public UserService(
             UserRepository userRepository,
@@ -65,7 +65,7 @@ public class UserService {
             @Value("${apexpay.refresh-token-timeout}") long refreshTokenTimeout,
             @Value("${apexpay.cookie-secure-value}") boolean cookieSecureValue,
             RefreshTokenRevocationService refreshTokenRevocationService,
-            JwtFilter jwtFilter) {
+            CookieUtils cookieUtils) {
         this.userRepository = userRepository;
         this.authManager = authManager;
         this.jwtService = jwtService;
@@ -74,8 +74,8 @@ public class UserService {
         this.jwtTimeout = jwtTimeout;
         this.refreshTokenTimeout = refreshTokenTimeout;
         this.cookieSecureValue = cookieSecureValue;
-        this.jwtFilter = jwtFilter;
         this.refreshTokenRevocationService = refreshTokenRevocationService;
+        this.cookieUtils = cookieUtils;
     }
 
     /**
@@ -85,7 +85,7 @@ public class UserService {
      */
     @Transactional
     public RegisterResponse register(RegisterRequest registerRequest, HttpServletResponse response,
-            HttpServletRequest request) {
+                                     HttpServletRequest request) {
         if (checkIfUsernameExist(registerRequest.username())) {
             throw new BusinessException(ErrorCode.USERNAME_EXISTS, "Username already taken.");
         }
@@ -139,7 +139,7 @@ public class UserService {
      */
     @Transactional
     public void refresh(HttpServletRequest request, HttpServletResponse response) {
-        String refreshTokenCookieText = jwtFilter.getCookieValue(request, "refresh_token");
+        String refreshTokenCookieText = cookieUtils.getCookieValue(request, "refresh_token");
         String ipAddress = request.getRemoteAddr();
 
         if (refreshTokenCookieText == null || refreshTokenCookieText.isBlank()) {
@@ -244,7 +244,7 @@ public class UserService {
     }
 
     private void generateAndStoreTokens(Users user, HttpServletRequest request, HttpServletResponse response,
-            UUID familyId) {
+                                        UUID familyId) {
         String accessToken = jwtService.generateToken(user);
         storeAccessTokenIntoHeader(accessToken, response);
 
