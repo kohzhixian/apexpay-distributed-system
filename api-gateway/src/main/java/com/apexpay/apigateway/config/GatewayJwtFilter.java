@@ -28,21 +28,22 @@ import java.util.function.Function;
 
 /**
  * WebFlux filter that handles JWT authentication for the API Gateway.
- * Validates JWT tokens from cookies or Authorization headers, extracts user claims,
+ * Validates JWT tokens from cookies or Authorization headers, extracts user
+ * claims,
  * and propagates user identity via X-User-* headers to downstream services.
- * Public endpoints bypass authentication; protected endpoints require valid tokens.
+ * Public endpoints bypass authentication; protected endpoints require valid
+ * tokens.
  */
 public class GatewayJwtFilter implements WebFilter {
 
-    private static final List<String> PUBLIC_ENDPOINTS = List.of("/api/v1/auth/**", "/user-fallback", "/actuator/health");
+    private static final List<String> PUBLIC_ENDPOINTS = List.of("/api/v1/auth/**", "/user-fallback",
+            "/actuator/health");
     private static final Logger logger = LoggerFactory.getLogger(GatewayJwtFilter.class);
     private static final AntPathMatcher pathMatcher = new AntPathMatcher();
     private final PublicKey publicKey;
 
-
     public GatewayJwtFilter(
-            Resource publicKey
-    ) {
+            Resource publicKey) {
         this.publicKey = loadPublicKey(publicKey);
     }
 
@@ -168,7 +169,6 @@ public class GatewayJwtFilter implements WebFilter {
             throw new IllegalStateException("Failed to load public key", e);
         }
     }
-
 
     public String extractToken(ServerWebExchange exchange) {
         // Get token from cookie

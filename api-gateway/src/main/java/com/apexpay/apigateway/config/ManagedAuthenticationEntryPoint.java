@@ -1,5 +1,6 @@
 package com.apexpay.apigateway.config;
 
+import com.apexpay.apigateway.exception.GlobalErrorWebExceptionHandler;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.server.ServerAuthenticationEntryPoint;
