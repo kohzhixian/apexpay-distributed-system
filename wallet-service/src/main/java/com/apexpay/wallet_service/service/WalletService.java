@@ -16,6 +16,9 @@ import com.apexpay.wallet_service.repository.WalletTransactionRepository;
 import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
@@ -24,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -71,8 +75,8 @@ public class WalletService {
      * Retries up to 3 times on concurrent modification conflicts.
      */
     @Transactional
-    @Retryable(retryFor = {OptimisticLockException.class,
-            ObjectOptimisticLockingFailureException.class}, maxAttempts = 3, backoff = @Backoff(delay = 100))
+    @Retryable(retryFor = { OptimisticLockException.class,
+            ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public TopUpWalletResponse topUpWallet(TopUpWalletRequest request, String userId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, request.walletId());
 
@@ -100,8 +104,8 @@ public class WalletService {
      * Retries up to 3 times on concurrent modification conflicts.
      */
     @Transactional
-    @Retryable(retryFor = {OptimisticLockException.class,
-            ObjectOptimisticLockingFailureException.class}, maxAttempts = 3, backoff = @Backoff(delay = 100))
+    @Retryable(retryFor = { OptimisticLockException.class,
+            ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public TransferResponse transfer(TransferRequest request, String payerUserId) {
         walletHelper.validateNotSameWallet(request.payerWalletId(), request.receiverWalletId());
 
@@ -109,7 +113,8 @@ public class WalletService {
         Wallets payerWallet = walletHelper.getWalletByUserIdAndId(payerUserId, request.payerWalletId());
 
         // get receiver wallet
-        Wallets receiverWallet = walletHelper.getWalletByUserIdAndId(request.receiverUserId(), request.receiverWalletId());
+        Wallets receiverWallet = walletHelper.getWalletByUserIdAndId(request.receiverUserId(),
+                request.receiverWalletId());
 
         // ! TODO: Check if currency matches for both wallets
 
@@ -131,7 +136,8 @@ public class WalletService {
         walletRepository.save(receiverWallet);
 
         // add a new wallet transaction for receiver wallet
-        walletHelper.createTransaction(receiverWallet, request.amount(), TransactionTypeEnum.CREDIT, "Received money from transfer.",
+        walletHelper.createTransaction(receiverWallet, request.amount(), TransactionTypeEnum.CREDIT,
+                "Received money from transfer.",
                 request.payerWalletId(), ReferenceTypeEnum.TRANSFER);
 
         logger.info("Transfer successful. From: {}, To: {}, Amount: {}",
@@ -153,8 +159,8 @@ public class WalletService {
      * Retries up to 3 times on concurrent modification conflicts.
      */
     @Transactional
-    @Retryable(retryFor = {OptimisticLockException.class,
-            ObjectOptimisticLockingFailureException.class}, maxAttempts = 3, backoff = @Backoff(delay = 100))
+    @Retryable(retryFor = { OptimisticLockException.class,
+            ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public PaymentResponse payment(PaymentRequest request, String userId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, request.walletId());
 
@@ -174,9 +180,31 @@ public class WalletService {
         return new PaymentResponse("Payment made successfully.");
     }
 
+    /**
+     * Returns the wallet balance for the specified wallet owned by the user.
+     */
     public GetBalanceResponse getBalance(String walletId, String userId) {
-        Wallets existingWallet = walletHelper.getWalletByUserIdAndId(walletId, userId);
+        Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, walletId);
         logger.info("Fetching balance for wallet id: {} and user id: {}", walletId, userId);
         return new GetBalanceResponse(existingWallet.getBalance());
+    }
+
+    /**
+     * Returns transaction history for the wallet, sorted by latest first.
+     * Offset is 1-based; each page returns 10 items.
+     */
+    public List<GetTransactionHistoryResponse> getTransactionHistory(String walletId, String userId, int offset) {
+        UUID walletUuid = walletHelper.parseWalletId(walletId);
+        // check if wallet belongs to user
+        walletHelper.getWalletByUserIdAndId(userId, walletId);
+
+        int pageIndex = Math.max(offset - 1, 0);
+        Pageable pageable = PageRequest.of(pageIndex, 10, Sort.by(Sort.Direction.DESC, "createdDate"));
+        return walletTransactionRepository.findAllByWalletId(walletUuid, pageable)
+                .stream()
+                .map(wt -> new GetTransactionHistoryResponse(
+                        wt.getId(), wt.getAmount(), wt.getTransactionType(), wt.getReferenceId(),
+                        wt.getReferenceType()))
+                .toList();
     }
 }

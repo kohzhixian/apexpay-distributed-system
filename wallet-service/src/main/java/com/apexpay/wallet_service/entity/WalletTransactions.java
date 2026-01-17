@@ -30,9 +30,9 @@ public class WalletTransactions {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false)
+    @Column(name = "transaction_type", nullable = false)
     @Enumerated(EnumType.STRING)
-    private TransactionTypeEnum type;
+    private TransactionTypeEnum transactionType;
 
     private String referenceId;
 

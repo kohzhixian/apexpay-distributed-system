@@ -57,7 +57,7 @@ CREATE TABLE walletservice.wallet_transactions(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wallet_id UUID NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
-    type VARCHAR(6) NOT NULL, -- CREDIT or DEBIT
+    transaction_type VARCHAR(6) NOT NULL, -- CREDIT or DEBIT
     reference_id VARCHAR(255),
     reference_type VARCHAR(50),
     description TEXT,

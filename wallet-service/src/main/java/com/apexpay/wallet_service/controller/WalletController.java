@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * REST controller for wallet operations.
  * Handles wallet creation, top-up, transfers, and payments.
@@ -33,7 +35,7 @@ public class WalletController {
      */
     @PostMapping
     public ResponseEntity<CreateWalletResponse> createWallet(@Valid @RequestBody CreateWalletRequest request,
-                                                             @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         CreateWalletResponse response = walletService.createWallet(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -43,7 +45,7 @@ public class WalletController {
      */
     @PostMapping("/topup")
     public ResponseEntity<TopUpWalletResponse> topUpWallet(@Valid @RequestBody TopUpWalletRequest request,
-                                                           @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         TopUpWalletResponse response = walletService.topUpWallet(request, userId);
         return ResponseEntity.ok(response);
     }
@@ -53,7 +55,7 @@ public class WalletController {
      */
     @PostMapping("/transfer")
     public ResponseEntity<TransferResponse> transfer(@Valid @RequestBody TransferRequest request,
-                                                     @RequestHeader(HttpHeaders.X_USER_ID) String payerUserId) {
+            @RequestHeader(HttpHeaders.X_USER_ID) String payerUserId) {
         TransferResponse response = walletService.transfer(request, payerUserId);
         return ResponseEntity.ok(response);
     }
@@ -63,15 +65,31 @@ public class WalletController {
      */
     @PostMapping("/payment")
     public ResponseEntity<PaymentResponse> payment(@Valid @RequestBody PaymentRequest request,
-                                                   @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         PaymentResponse response = walletService.payment(request, userId);
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Returns the current wallet balance for the authenticated user.
+     */
     @GetMapping("/{walletId}/balance")
     public ResponseEntity<GetBalanceResponse> getBalance(@UUID @PathVariable("walletId") String walletId,
-                                                         @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
-        GetBalanceResponse response = walletService.getBalance(userId, walletId);
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        GetBalanceResponse response = walletService.getBalance(walletId, userId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Returns a paged transaction history (10 items per page).
+     * The offset is 1-based to align with user-facing pagination.
+     */
+    @GetMapping("/{walletId}/history/{offset}")
+    public ResponseEntity<List<GetTransactionHistoryResponse>> getTransactionHistory(
+            @UUID @PathVariable("walletId") String walletId,
+            @PathVariable("offset") int offset,
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        List<GetTransactionHistoryResponse> response = walletService.getTransactionHistory(walletId, userId, offset);
         return ResponseEntity.ok(response);
     }
 }

@@ -57,7 +57,7 @@ public class WalletHelper {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
-                .type(transactionType)
+                .transactionType(transactionType)
                 .description(description)
                 .build();
 
@@ -69,7 +69,7 @@ public class WalletHelper {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
-                .type(transactionType)
+                .transactionType(transactionType)
                 .description(description)
                 .referenceId(referenceId)
                 .referenceType(referenceType)
@@ -101,7 +101,7 @@ public class WalletHelper {
         }
     }
 
-    private UUID parseWalletId(String walletId) {
+    public UUID parseWalletId(String walletId) {
         if (walletId == null || walletId.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "Wallet id is required.");
         }
