@@ -6,10 +6,7 @@ import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
 import com.apexpay.wallet_service.dto.request.PaymentRequest;
 import com.apexpay.wallet_service.dto.request.TopUpWalletRequest;
 import com.apexpay.wallet_service.dto.request.TransferRequest;
-import com.apexpay.wallet_service.dto.response.CreateWalletResponse;
-import com.apexpay.wallet_service.dto.response.PaymentResponse;
-import com.apexpay.wallet_service.dto.response.TopUpWalletResponse;
-import com.apexpay.wallet_service.dto.response.TransferResponse;
+import com.apexpay.wallet_service.dto.response.*;
 import com.apexpay.wallet_service.entity.Wallets;
 import com.apexpay.wallet_service.enums.ReferenceTypeEnum;
 import com.apexpay.wallet_service.enums.TransactionTypeEnum;
@@ -175,5 +172,11 @@ public class WalletService {
 
         logger.info("Payment successful. WalletId: {}, Amount: {}", existingWallet.getId(), request.amount());
         return new PaymentResponse("Payment made successfully.");
+    }
+
+    public GetBalanceResponse getBalance(String walletId, String userId) {
+        Wallets existingWallet = walletHelper.getWalletByUserIdAndId(walletId, userId);
+        logger.info("Fetching balance for wallet id: {} and user id: {}", walletId, userId);
+        return new GetBalanceResponse(existingWallet.getBalance());
     }
 }

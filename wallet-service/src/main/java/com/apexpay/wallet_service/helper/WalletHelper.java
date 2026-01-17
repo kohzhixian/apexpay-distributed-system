@@ -15,10 +15,12 @@ import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.retry.annotation.Recover;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
+@Component
 public class WalletHelper {
     private static final Logger logger = LoggerFactory.getLogger(WalletHelper.class);
 

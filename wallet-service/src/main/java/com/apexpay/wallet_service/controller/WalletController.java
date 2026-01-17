@@ -5,14 +5,13 @@ import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
 import com.apexpay.wallet_service.dto.request.PaymentRequest;
 import com.apexpay.wallet_service.dto.request.TopUpWalletRequest;
 import com.apexpay.wallet_service.dto.request.TransferRequest;
-import com.apexpay.wallet_service.dto.response.CreateWalletResponse;
-import com.apexpay.wallet_service.dto.response.PaymentResponse;
-import com.apexpay.wallet_service.dto.response.TopUpWalletResponse;
-import com.apexpay.wallet_service.dto.response.TransferResponse;
+import com.apexpay.wallet_service.dto.response.*;
 import com.apexpay.wallet_service.service.WalletService;
 import jakarta.validation.Valid;
+import org.hibernate.validator.constraints.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -21,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/v1/wallet")
+@Validated // needed for validation on path variables and request params
 public class WalletController {
     private final WalletService walletService;
 
@@ -65,6 +65,13 @@ public class WalletController {
     public ResponseEntity<PaymentResponse> payment(@Valid @RequestBody PaymentRequest request,
                                                    @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         PaymentResponse response = walletService.payment(request, userId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{walletId}/balance")
+    public ResponseEntity<GetBalanceResponse> getBalance(@UUID @PathVariable("walletId") String walletId,
+                                                         @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        GetBalanceResponse response = walletService.getBalance(userId, walletId);
         return ResponseEntity.ok(response);
     }
 }
