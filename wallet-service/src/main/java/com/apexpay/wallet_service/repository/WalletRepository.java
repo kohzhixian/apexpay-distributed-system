@@ -9,9 +9,11 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Repository for wallet entity operations. */
+/**
+ * Repository for wallet entity operations.
+ */
 @Repository
-public interface WalletsRepository extends JpaRepository<Wallets, UUID> {
+public interface WalletRepository extends JpaRepository<Wallets, UUID> {
 
     /**
      * Finds a wallet by user ID and wallet ID.

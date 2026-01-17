@@ -1,4 +1,4 @@
-package com.apexpay.wallet_service.dto;
+package com.apexpay.wallet_service.dto.request;
 
 import com.apexpay.common.enums.CurrencyEnum;
 import jakarta.validation.constraints.DecimalMin;

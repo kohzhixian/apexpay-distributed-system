@@ -1,4 +1,4 @@
-package com.apexpay.wallet_service.dto;
+package com.apexpay.wallet_service.dto.response;
 
 public record TopUpWalletResponse(String message) {
 }

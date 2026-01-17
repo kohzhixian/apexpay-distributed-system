@@ -1,15 +1,21 @@
 package com.apexpay.wallet_service.service;
 
-import com.apexpay.common.enums.CurrencyEnum;
 import com.apexpay.common.exception.BusinessException;
 import com.apexpay.common.exception.ErrorCode;
-import com.apexpay.wallet_service.dto.*;
-import com.apexpay.wallet_service.entity.WalletTransactions;
+import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
+import com.apexpay.wallet_service.dto.request.PaymentRequest;
+import com.apexpay.wallet_service.dto.request.TopUpWalletRequest;
+import com.apexpay.wallet_service.dto.request.TransferRequest;
+import com.apexpay.wallet_service.dto.response.CreateWalletResponse;
+import com.apexpay.wallet_service.dto.response.PaymentResponse;
+import com.apexpay.wallet_service.dto.response.TopUpWalletResponse;
+import com.apexpay.wallet_service.dto.response.TransferResponse;
 import com.apexpay.wallet_service.entity.Wallets;
 import com.apexpay.wallet_service.enums.ReferenceTypeEnum;
 import com.apexpay.wallet_service.enums.TransactionTypeEnum;
+import com.apexpay.wallet_service.helper.WalletHelper;
+import com.apexpay.wallet_service.repository.WalletRepository;
 import com.apexpay.wallet_service.repository.WalletTransactionRepository;
-import com.apexpay.wallet_service.repository.WalletsRepository;
 import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,14 +38,17 @@ import java.util.UUID;
 public class WalletService {
 
     private static final Logger logger = LoggerFactory.getLogger(WalletService.class);
-    private final WalletsRepository walletRepository;
+    private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final WalletHelper walletHelper;
 
     public WalletService(
-            WalletsRepository walletRepository,
-            WalletTransactionRepository walletTransactionRepository) {
+            WalletRepository walletRepository,
+            WalletTransactionRepository walletTransactionRepository,
+            WalletHelper walletHelper) {
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
+        this.walletHelper = walletHelper;
     }
 
     /**
@@ -47,12 +56,12 @@ public class WalletService {
      */
     @Transactional
     public CreateWalletResponse createWallet(CreateWalletRequest request, String userId) {
-        UUID userUuid = parseUserId(userId);
+        UUID userUuid = walletHelper.parseUserId(userId);
 
         Wallets newWallet = Wallets.builder()
                 .balance(request.balance())
                 .userId(userUuid)
-                .currency(resolveCurrency(request.currency()))
+                .currency(walletHelper.resolveCurrency(request.currency()))
                 .build();
 
         walletRepository.save(newWallet);
@@ -65,17 +74,17 @@ public class WalletService {
      * Retries up to 3 times on concurrent modification conflicts.
      */
     @Transactional
-    @Retryable(retryFor = { OptimisticLockException.class,
-            ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
+    @Retryable(retryFor = {OptimisticLockException.class,
+            ObjectOptimisticLockingFailureException.class}, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public TopUpWalletResponse topUpWallet(TopUpWalletRequest request, String userId) {
-        Wallets existingWallet = getWalletByUserIdAndId(userId, request.walletId());
+        Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, request.walletId());
 
         // Calculate new balance of wallet
         BigDecimal newBalance = existingWallet.getBalance().add(request.amount());
         existingWallet.setBalance(newBalance);
         walletRepository.save(existingWallet);
 
-        createTransaction(existingWallet, request.amount(), TransactionTypeEnum.CREDIT, "Top up wallet");
+        walletHelper.createTransaction(existingWallet, request.amount(), TransactionTypeEnum.CREDIT, "Top up wallet");
         logger.info("Top up successful. WalletId: {}, Amount: {}", existingWallet.getId(), request.amount());
         return new TopUpWalletResponse("Wallet top up successfully.");
     }
@@ -94,21 +103,21 @@ public class WalletService {
      * Retries up to 3 times on concurrent modification conflicts.
      */
     @Transactional
-    @Retryable(retryFor = { OptimisticLockException.class,
-            ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
+    @Retryable(retryFor = {OptimisticLockException.class,
+            ObjectOptimisticLockingFailureException.class}, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public TransferResponse transfer(TransferRequest request, String payerUserId) {
-        validateNotSameWallet(request.payerWalletId(), request.receiverWalletId());
+        walletHelper.validateNotSameWallet(request.payerWalletId(), request.receiverWalletId());
 
         // get payer wallet
-        Wallets payerWallet = getWalletByUserIdAndId(payerUserId, request.payerWalletId());
+        Wallets payerWallet = walletHelper.getWalletByUserIdAndId(payerUserId, request.payerWalletId());
 
         // get receiver wallet
-        Wallets receiverWallet = getWalletByUserIdAndId(request.receiverUserId(), request.receiverWalletId());
+        Wallets receiverWallet = walletHelper.getWalletByUserIdAndId(request.receiverUserId(), request.receiverWalletId());
 
         // ! TODO: Check if currency matches for both wallets
 
         // check if payer wallet has enough balance for transfer
-        validateSufficientBalance(payerWallet, request.amount());
+        walletHelper.validateSufficientBalance(payerWallet, request.amount());
 
         // deduct amount from payer wallet
         BigDecimal payerBalance = payerWallet.getBalance().subtract(request.amount());
@@ -116,7 +125,7 @@ public class WalletService {
         walletRepository.save(payerWallet);
 
         // add a new wallet transaction for payer wallet
-        createTransaction(payerWallet, request.amount(), TransactionTypeEnum.DEBIT, "Transfer money.",
+        walletHelper.createTransaction(payerWallet, request.amount(), TransactionTypeEnum.DEBIT, "Transfer money.",
                 request.receiverWalletId(), ReferenceTypeEnum.TRANSFER);
 
         // Add amount to receiver wallet
@@ -125,7 +134,7 @@ public class WalletService {
         walletRepository.save(receiverWallet);
 
         // add a new wallet transaction for receiver wallet
-        createTransaction(receiverWallet, request.amount(), TransactionTypeEnum.CREDIT, "Received money from transfer.",
+        walletHelper.createTransaction(receiverWallet, request.amount(), TransactionTypeEnum.CREDIT, "Received money from transfer.",
                 request.payerWalletId(), ReferenceTypeEnum.TRANSFER);
 
         logger.info("Transfer successful. From: {}, To: {}, Amount: {}",
@@ -147,13 +156,13 @@ public class WalletService {
      * Retries up to 3 times on concurrent modification conflicts.
      */
     @Transactional
-    @Retryable(retryFor = { OptimisticLockException.class,
-            ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
+    @Retryable(retryFor = {OptimisticLockException.class,
+            ObjectOptimisticLockingFailureException.class}, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public PaymentResponse payment(PaymentRequest request, String userId) {
-        Wallets existingWallet = getWalletByUserIdAndId(userId, request.walletId());
+        Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, request.walletId());
 
         // check if user wallet has enough balance to make payment
-        validateSufficientBalance(existingWallet, request.amount());
+        walletHelper.validateSufficientBalance(existingWallet, request.amount());
 
         // calculate wallet new balance
         BigDecimal newBalance = existingWallet.getBalance().subtract(request.amount());
@@ -161,93 +170,10 @@ public class WalletService {
         walletRepository.save(existingWallet);
 
         // Create new wallet transaction
-        createTransaction(existingWallet, request.amount(), TransactionTypeEnum.DEBIT, "Make payment",
+        walletHelper.createTransaction(existingWallet, request.amount(), TransactionTypeEnum.DEBIT, "Make payment",
                 request.referenceId(), ReferenceTypeEnum.PAYMENT);
 
         logger.info("Payment successful. WalletId: {}, Amount: {}", existingWallet.getId(), request.amount());
         return new PaymentResponse("Payment made successfully.");
-    }
-
-    /**
-     * Recovery handler when payment retries are exhausted.
-     */
-    @Recover
-    public PaymentResponse recoverPayment(OptimisticLockException e, PaymentRequest request, String userId) {
-        logger.error("Payment failed after retries. UserId: {}, WalletId: {}", userId, request.walletId());
-        throw new BusinessException(ErrorCode.CONCURRENT_UPDATE, "Too many concurrent updates. Please try again.");
-    }
-
-    private Wallets getWalletByUserIdAndId(String userId, String walletId) {
-        UUID userUuid = parseUserId(userId);
-        UUID walletUuid = parseWalletId(walletId);
-
-        return walletRepository.findWalletByUserIdAndId(userUuid, walletUuid)
-                .orElseThrow(() -> {
-                    return new BusinessException(ErrorCode.WALLET_NOT_FOUND, "Wallet not found.");
-                });
-    }
-
-    private void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-            String description) {
-        WalletTransactions newWalletTransaction = WalletTransactions.builder()
-                .wallet(wallet)
-                .amount(amount)
-                .type(transactionType)
-                .description(description)
-                .build();
-
-        walletTransactionRepository.save(newWalletTransaction);
-    }
-
-    private void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-            String description, String referenceId, ReferenceTypeEnum referenceType) {
-        WalletTransactions newWalletTransaction = WalletTransactions.builder()
-                .wallet(wallet)
-                .amount(amount)
-                .type(transactionType)
-                .description(description)
-                .referenceId(referenceId)
-                .referenceType(referenceType)
-                .build();
-
-        walletTransactionRepository.save(newWalletTransaction);
-    }
-
-    private void validateSufficientBalance(Wallets wallet, BigDecimal amount) {
-        if (wallet.getBalance().compareTo(amount) < 0) {
-            throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE, "Insufficient balance.");
-        }
-    }
-
-    private void validateNotSameWallet(String wallet1Id, String wallet2Id) {
-        if (wallet1Id.equals(wallet2Id)) {
-            throw new BusinessException(ErrorCode.INVALID_TRANSFER, "Cannot transfer to the same wallet.");
-        }
-    }
-
-    private UUID parseUserId(String userId) {
-        if (userId == null || userId.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "User id is required.");
-        }
-        try {
-            return UUID.fromString(userId);
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "Invalid User id format.");
-        }
-    }
-
-    private UUID parseWalletId(String walletId) {
-        if (walletId == null || walletId.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "Wallet id is required.");
-        }
-        try {
-            return UUID.fromString(walletId);
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, "Invalid Wallet id format.");
-        }
-    }
-
-    private CurrencyEnum resolveCurrency(CurrencyEnum currency) {
-        return currency != null ? currency : CurrencyEnum.SGD;
     }
 }

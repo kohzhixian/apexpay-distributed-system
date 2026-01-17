@@ -1,7 +1,14 @@
 package com.apexpay.wallet_service.controller;
 
 import com.apexpay.common.constants.HttpHeaders;
-import com.apexpay.wallet_service.dto.*;
+import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
+import com.apexpay.wallet_service.dto.request.PaymentRequest;
+import com.apexpay.wallet_service.dto.request.TopUpWalletRequest;
+import com.apexpay.wallet_service.dto.request.TransferRequest;
+import com.apexpay.wallet_service.dto.response.CreateWalletResponse;
+import com.apexpay.wallet_service.dto.response.PaymentResponse;
+import com.apexpay.wallet_service.dto.response.TopUpWalletResponse;
+import com.apexpay.wallet_service.dto.response.TransferResponse;
 import com.apexpay.wallet_service.service.WalletService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,34 +28,42 @@ public class WalletController {
         this.walletService = walletService;
     }
 
-    /** Creates a new wallet for the authenticated user. */
+    /**
+     * Creates a new wallet for the authenticated user.
+     */
     @PostMapping
     public ResponseEntity<CreateWalletResponse> createWallet(@Valid @RequestBody CreateWalletRequest request,
-            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+                                                             @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         CreateWalletResponse response = walletService.createWallet(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /** Adds funds to an existing wallet. */
+    /**
+     * Adds funds to an existing wallet.
+     */
     @PostMapping("/topup")
     public ResponseEntity<TopUpWalletResponse> topUpWallet(@Valid @RequestBody TopUpWalletRequest request,
-            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+                                                           @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         TopUpWalletResponse response = walletService.topUpWallet(request, userId);
         return ResponseEntity.ok(response);
     }
 
-    /** Transfers funds between two wallets. */
+    /**
+     * Transfers funds between two wallets.
+     */
     @PostMapping("/transfer")
     public ResponseEntity<TransferResponse> transfer(@Valid @RequestBody TransferRequest request,
-            @RequestHeader(HttpHeaders.X_USER_ID) String payerUserId) {
+                                                     @RequestHeader(HttpHeaders.X_USER_ID) String payerUserId) {
         TransferResponse response = walletService.transfer(request, payerUserId);
         return ResponseEntity.ok(response);
     }
 
-    /** Processes a payment from a wallet. */
+    /**
+     * Processes a payment from a wallet.
+     */
     @PostMapping("/payment")
     public ResponseEntity<PaymentResponse> payment(@Valid @RequestBody PaymentRequest request,
-            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+                                                   @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         PaymentResponse response = walletService.payment(request, userId);
         return ResponseEntity.ok(response);
     }
