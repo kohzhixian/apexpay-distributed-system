@@ -39,7 +39,7 @@ import java.util.function.Function;
 public class GatewayJwtFilter implements WebFilter {
 
     private static final List<String> PUBLIC_ENDPOINTS = List.of("/api/v1/auth/**", "/user-fallback",
-            "/actuator/health");
+            "/actuator/health", "/wallet-fallback");
     private static final Logger logger = LoggerFactory.getLogger(GatewayJwtFilter.class);
     private static final AntPathMatcher pathMatcher = new AntPathMatcher();
     private final PublicKey publicKey;
