@@ -1,6 +1,7 @@
 package com.apexpay.apigateway.config;
 
 import com.apexpay.apigateway.exception.UnauthorizedException;
+import com.apexpay.common.constants.HttpHeaders;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.jspecify.annotations.NullMarked;
@@ -38,7 +39,7 @@ import java.util.function.Function;
 public class GatewayJwtFilter implements WebFilter {
 
     private static final List<String> PUBLIC_ENDPOINTS = List.of("/api/v1/auth/**", "/user-fallback",
-            "/actuator/health");
+            "/actuator/health", "/wallet-fallback");
     private static final Logger logger = LoggerFactory.getLogger(GatewayJwtFilter.class);
     private static final AntPathMatcher pathMatcher = new AntPathMatcher();
     private final PublicKey publicKey;
@@ -57,9 +58,9 @@ public class GatewayJwtFilter implements WebFilter {
         // Strip any incoming headers to prevent spoofing
         ServerHttpRequest sanitizedRequest = exchange.getRequest().mutate()
                 .headers(headers -> {
-                    headers.remove("X-User-Id");
-                    headers.remove("X-User-Email");
-                    headers.remove("X-User-Name");
+                    headers.remove(HttpHeaders.X_USER_ID);
+                    headers.remove(HttpHeaders.X_USER_EMAIL);
+                    headers.remove(HttpHeaders.X_USER_NAME);
                 })
                 .build();
 
@@ -98,9 +99,9 @@ public class GatewayJwtFilter implements WebFilter {
 
         // Add users details to headers of request
         ServerHttpRequest mutatedRequest = sanitizedExchange.getRequest().mutate()
-                .header("X-User-Id", userId)
-                .header("X-User-Email", email)
-                .header("X-User-Name", username)
+                .header(HttpHeaders.X_USER_ID, userId)
+                .header(HttpHeaders.X_USER_EMAIL, email)
+                .header(HttpHeaders.X_USER_NAME, username)
                 .build();
 
         ServerWebExchange mutatedExchange = sanitizedExchange.mutate()

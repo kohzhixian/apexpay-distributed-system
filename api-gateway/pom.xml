@@ -133,6 +133,11 @@
             <version>4.3.0</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>com.apexpay</groupId>
+            <artifactId>common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>

@@ -1,6 +1,6 @@
 spring:
   application:
-    name: payment-service
+    name: paymentservice
   main:
     banner-mode: off
   profiles:

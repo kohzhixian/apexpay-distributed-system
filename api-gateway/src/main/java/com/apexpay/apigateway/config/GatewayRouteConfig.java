@@ -32,6 +32,14 @@ public class GatewayRouteConfig {
                                         .setName("userserviceCB")
                                         .setFallbackUri("forward:/user-fallback")))
                         .uri("lb://userservice"))
+                
+                .route("wallet-service", r -> r
+                        .path("/api/v1/wallet/**")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("walletserviceCB")
+                                        .setFallbackUri("forward:/wallet-fallback")))
+                        .uri("lb://walletservice"))
                 .build();
     }
 }
