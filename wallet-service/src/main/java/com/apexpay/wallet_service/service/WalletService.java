@@ -13,7 +13,6 @@ import com.apexpay.wallet_service.enums.TransactionTypeEnum;
 import com.apexpay.wallet_service.helper.WalletHelper;
 import com.apexpay.wallet_service.repository.WalletRepository;
 import com.apexpay.wallet_service.repository.WalletTransactionRepository;
-import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -58,10 +57,11 @@ public class WalletService {
     @Transactional
     public CreateWalletResponse createWallet(CreateWalletRequest request, String userId) {
         UUID userUuid = walletHelper.parseUserId(userId);
-
+        BigDecimal defaultReservedBalance = new BigDecimal("0.00");
         Wallets newWallet = Wallets.builder()
                 .balance(request.balance())
                 .userId(userUuid)
+                .reservedBalance(defaultReservedBalance)
                 .currency(walletHelper.resolveCurrency(request.currency()))
                 .build();
 
@@ -75,7 +75,7 @@ public class WalletService {
      * Retries up to 3 times on concurrent modification conflicts.
      */
     @Transactional
-    @Retryable(retryFor = { OptimisticLockException.class,
+    @Retryable(retryFor = {
             ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public TopUpWalletResponse topUpWallet(TopUpWalletRequest request, String userId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, request.walletId());
@@ -94,7 +94,8 @@ public class WalletService {
      * Recovery handler when top-up retries are exhausted.
      */
     @Recover
-    public TopUpWalletResponse recoverTopUp(OptimisticLockException ex, TopUpWalletRequest request, String userId) {
+    public TopUpWalletResponse recoverTopUp(ObjectOptimisticLockingFailureException ex, TopUpWalletRequest request,
+            String userId) {
         logger.error("Topup failed after retries. UserId: {} , WalletID: {}", userId, request.walletId());
         throw new BusinessException(ErrorCode.CONCURRENT_UPDATE, "Too many concurrent updates. Please try again.");
     }
@@ -104,7 +105,7 @@ public class WalletService {
      * Retries up to 3 times on concurrent modification conflicts.
      */
     @Transactional
-    @Retryable(retryFor = { OptimisticLockException.class,
+    @Retryable(retryFor = {
             ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public TransferResponse transfer(TransferRequest request, String payerUserId) {
         walletHelper.validateNotSameWallet(request.payerWalletId(), request.receiverWalletId());
@@ -149,7 +150,8 @@ public class WalletService {
      * Recovery handler when transfer retries are exhausted.
      */
     @Recover
-    public TransferResponse recoverTransfer(OptimisticLockException e, TransferRequest request, String payerUserId) {
+    public TransferResponse recoverTransfer(ObjectOptimisticLockingFailureException e, TransferRequest request,
+            String payerUserId) {
         logger.error("Transfer failed after retries. PayerUserId: {}", payerUserId);
         throw new BusinessException(ErrorCode.CONCURRENT_UPDATE, "Too many concurrent updates. Please try again.");
     }
@@ -159,7 +161,7 @@ public class WalletService {
      * Retries up to 3 times on concurrent modification conflicts.
      */
     @Transactional
-    @Retryable(retryFor = { OptimisticLockException.class,
+    @Retryable(retryFor = {
             ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public PaymentResponse payment(PaymentRequest request, String userId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, request.walletId());
@@ -178,6 +180,16 @@ public class WalletService {
 
         logger.info("Payment successful. WalletId: {}, Amount: {}", existingWallet.getId(), request.amount());
         return new PaymentResponse("Payment made successfully.");
+    }
+
+    /**
+     * Recovery handler when payment retries are exhausted.
+     */
+    @Recover
+    public PaymentResponse recoverPayment(ObjectOptimisticLockingFailureException e, PaymentRequest request,
+            String userId) {
+        logger.error("Payment failed after retries. UserId: {}, WalletId: {}", userId, request.walletId());
+        throw new BusinessException(ErrorCode.CONCURRENT_UPDATE, "Too many concurrent updates. Please try again.");
     }
 
     /**

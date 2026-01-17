@@ -45,7 +45,7 @@ CREATE TABLE walletservice.wallets(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     balance DECIMAL(15,2) NOT NULL,
-    reserved_balance DECIMAL(15,2) NOT NULL DEFUALT 0.00,
+    reserved_balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
     currency VARCHAR(3) NOT NULL DEFAULT 'SGD',
     version BIGINT NOT NULL DEFAULT 0,
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -3,18 +3,12 @@ package com.apexpay.wallet_service.helper;
 import com.apexpay.common.enums.CurrencyEnum;
 import com.apexpay.common.exception.BusinessException;
 import com.apexpay.common.exception.ErrorCode;
-import com.apexpay.wallet_service.dto.request.PaymentRequest;
-import com.apexpay.wallet_service.dto.response.PaymentResponse;
 import com.apexpay.wallet_service.entity.WalletTransactions;
 import com.apexpay.wallet_service.entity.Wallets;
 import com.apexpay.wallet_service.enums.ReferenceTypeEnum;
 import com.apexpay.wallet_service.enums.TransactionTypeEnum;
 import com.apexpay.wallet_service.repository.WalletRepository;
 import com.apexpay.wallet_service.repository.WalletTransactionRepository;
-import jakarta.persistence.OptimisticLockException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.retry.annotation.Recover;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -22,24 +16,14 @@ import java.util.UUID;
 
 @Component
 public class WalletHelper {
-    private static final Logger logger = LoggerFactory.getLogger(WalletHelper.class);
 
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
 
     public WalletHelper(WalletRepository walletRepository,
-                        WalletTransactionRepository walletTransactionRepository) {
+            WalletTransactionRepository walletTransactionRepository) {
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
-    }
-
-    /**
-     * Recovery handler when payment retries are exhausted.
-     */
-    @Recover
-    public PaymentResponse recoverPayment(OptimisticLockException e, PaymentRequest request, String userId) {
-        logger.error("Payment failed after retries. UserId: {}, WalletId: {}", userId, request.walletId());
-        throw new BusinessException(ErrorCode.CONCURRENT_UPDATE, "Too many concurrent updates. Please try again.");
     }
 
     public Wallets getWalletByUserIdAndId(String userId, String walletId) {
@@ -53,7 +37,7 @@ public class WalletHelper {
     }
 
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-                                  String description) {
+            String description) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
@@ -65,7 +49,7 @@ public class WalletHelper {
     }
 
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-                                  String description, String referenceId, ReferenceTypeEnum referenceType) {
+            String description, String referenceId, ReferenceTypeEnum referenceType) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
@@ -86,7 +70,9 @@ public class WalletHelper {
     }
 
     public void validateNotSameWallet(String wallet1Id, String wallet2Id) {
-        if (wallet1Id.equals(wallet2Id)) {
+        UUID wallet1Uuid = parseWalletId(wallet1Id);
+        UUID wallet2Uuid = parseWalletId(wallet2Id);
+        if (wallet1Uuid.equals(wallet2Uuid)) {
             throw new BusinessException(ErrorCode.INVALID_TRANSFER, "Cannot transfer to the same wallet.");
         }
     }
