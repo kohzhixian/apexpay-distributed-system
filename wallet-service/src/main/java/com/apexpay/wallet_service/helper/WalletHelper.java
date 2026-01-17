@@ -79,7 +79,8 @@ public class WalletHelper {
     }
 
     public void validateSufficientBalance(Wallets wallet, BigDecimal amount) {
-        if (wallet.getBalance().compareTo(amount) < 0) {
+        BigDecimal balance = wallet.getBalance().subtract(wallet.getReservedBalance());
+        if (balance.compareTo(amount) < 0) {
             throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE, "Insufficient balance.");
         }
     }

@@ -29,6 +29,9 @@ public class Wallets {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal balance;
 
+    @Column(nullable = false, precision = 15, scale = 2)
+    private BigDecimal reservedBalance;
+
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private CurrencyEnum currency;
