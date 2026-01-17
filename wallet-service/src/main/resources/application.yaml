@@ -1,6 +1,6 @@
 spring:
   application:
-    name: wallet-service
+    name: walletservice
   main:
     banner-mode: off
   profiles:
@@ -23,3 +23,4 @@ logging:
   level:
     com.netflix.discovery: DEBUG
     com.netflix.eureka: DEBUG
+

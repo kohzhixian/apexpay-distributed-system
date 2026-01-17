@@ -1,10 +1,10 @@
-package com.apexpay.userservice.exception;
+package com.apexpay.common.exception;
 
 import lombok.Getter;
 
 /**
  * Base exception for all business logic errors.
- * Uses ErrorCode enum for consistent error handling across the application.
+ * Uses ErrorCode enum for consistent error handling across services.
  */
 @Getter
 public class BusinessException extends RuntimeException {

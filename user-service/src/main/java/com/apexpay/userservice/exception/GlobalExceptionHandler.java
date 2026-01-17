@@ -1,6 +1,8 @@
 package com.apexpay.userservice.exception;
 
-import com.apexpay.userservice.helper.ErrorResponse;
+import com.apexpay.common.dto.ErrorResponse;
+import com.apexpay.common.exception.BusinessException;
+import com.apexpay.common.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;

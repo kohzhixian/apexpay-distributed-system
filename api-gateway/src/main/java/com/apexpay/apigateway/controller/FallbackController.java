@@ -19,4 +19,10 @@ public class FallbackController {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
                 "The User Service is currently taking too long to respond or is down.");
     }
+
+    @RequestMapping("/wallet-fallback")
+    public ResponseEntity<@NonNull String> walletServiceFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body("The Wallet Service is currently taking too long to respond or is down.");
+    }
 }

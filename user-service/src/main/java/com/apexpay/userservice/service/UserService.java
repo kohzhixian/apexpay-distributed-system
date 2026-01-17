@@ -9,8 +9,8 @@ import com.apexpay.userservice.dto.response.RegisterResponse;
 import com.apexpay.userservice.entity.RefreshTokens;
 import com.apexpay.userservice.entity.UserPrincipal;
 import com.apexpay.userservice.entity.Users;
-import com.apexpay.userservice.exception.BusinessException;
-import com.apexpay.userservice.exception.ErrorCode;
+import com.apexpay.common.exception.BusinessException;
+import com.apexpay.common.exception.ErrorCode;
 import com.apexpay.userservice.repository.RefreshtokenRepository;
 import com.apexpay.userservice.repository.UserRepository;
 import com.apexpay.userservice.security.JwtService;
@@ -85,7 +85,7 @@ public class UserService {
      */
     @Transactional
     public RegisterResponse register(RegisterRequest registerRequest, HttpServletResponse response,
-                                     HttpServletRequest request) {
+            HttpServletRequest request) {
         if (checkIfUsernameExist(registerRequest.username())) {
             throw new BusinessException(ErrorCode.USERNAME_EXISTS, "Username already taken.");
         }
@@ -244,7 +244,7 @@ public class UserService {
     }
 
     private void generateAndStoreTokens(Users user, HttpServletRequest request, HttpServletResponse response,
-                                        UUID familyId) {
+            UUID familyId) {
         String accessToken = jwtService.generateToken(user);
         storeAccessTokenIntoHeader(accessToken, response);
 

@@ -1,10 +1,14 @@
-package com.apexpay.userservice.helper;
+package com.apexpay.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 
 import java.time.Instant;
 
+/**
+ * Standardized error response DTO for all ApexPay services.
+ * Provides consistent error format across the distributed system.
+ */
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorResponse {
