@@ -62,6 +62,7 @@ CREATE TABLE walletservice.wallet_transactions(
     reference_id VARCHAR(255),
     reference_type VARCHAR(50),
     description TEXT,
+    status VARCHAR(25) NOT NULL, -- tracks the movement of balance and reserved_balance (PENDING, COMPLETED, CANCELLED)
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_wallet
@@ -75,8 +76,16 @@ CREATE TABLE paymentservice.payments(
     amount DECIMAL(15,2) NOT NULL,
     currency VARCHAR(3) NOT NULL DEFAULT 'SGD',
     client_request_id VARCHAR(255) UNIQUE NOT NULL,
-    status VARCHAR(25) NOT NULL,
+    status VARCHAR(25) NOT NULL, -- (INITIATED, PENDING, SUCCESS, FAILED, REFUNDED)
     provider VARCHAR(50),
+    version BIGINT NOT NULL DEFAULT 0,
+    wallet_id UUID NOT NULL,
+    failure_code VARCHAR(50),
+    failure_message VARCHAR(500),
+    external_transaction_id VARCHAR(100) NOT NULL,
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_payments_external_transaction_id ON paymentservice.payments(external_transaction_id);
+

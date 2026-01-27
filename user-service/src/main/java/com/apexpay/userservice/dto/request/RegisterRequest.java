@@ -1,5 +1,6 @@
 package com.apexpay.userservice.dto.request;
 
+import com.apexpay.common.constants.ValidationMessages;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -19,11 +20,11 @@ public record RegisterRequest(
 
         @NotBlank
         @Size(min = 3, max = 20)
-        @Pattern(regexp = "^[a-zA-Z0-9_]+$", message = "Username can only contain letters, numbers, and underscores")
+        @Pattern(regexp = "^[a-zA-Z0-9_]+$", message = ValidationMessages.USERNAME_PATTERN)
         String username,
 
         @NotBlank
-        @Size(min = 8, message = "Password must be at least 8 characters")
+        @Size(min = 8, message = ValidationMessages.PASSWORD_MIN_LENGTH)
         String password
 ) {
 }
