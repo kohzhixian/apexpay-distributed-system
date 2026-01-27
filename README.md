@@ -53,9 +53,11 @@ This project demonstrates my understanding of enterprise-grade microservices pat
 - **API Gateway** - Centralized routing and authentication
 - **JWT Authentication** - Secure, stateless authentication with refresh token rotation
 - **Wallet Management** - Digital wallet with balance management and transaction history
-- **Payment Processing** - Idempotent payment operations with provider abstraction
-- **Circuit Breaker Pattern** - Resilience4j automatically opens circuits when services fail, preventing cascading failures and returning fallback responses
-- **Distributed Transactions** - Optimistic locking with retry mechanism for concurrent updates
+- **Payment Processing** - Idempotent payment operations with a two-phase commit (2PC) pattern and provider abstraction
+- **Mock Payment Provider** - Configurable simulation of external gateways (Stripe/PayPal) with latency and deterministic test tokens
+- **Circuit Breaker Pattern** - Resilience4j automatically opens circuits when services fail, preventing cascading failures
+- **Distributed Transactions** - Optimistic locking and a reservation-based 2PC flow for cross-service consistency
+- **Resilience & Retries** - Exponential backoff for transient payment provider failures
 
 ## Architecture
 
@@ -100,30 +102,27 @@ This project demonstrates my understanding of enterprise-grade microservices pat
 
 ### Request Flow
 
-**Example: User initiates a payment**
+**Example: User initiates and completes a payment**
 
-1. **Client Request:** Client sends POST `/api/v1/payment/initiate` with JWT token in cookie to API Gateway (port 9000).
+1. **Initiation (Idempotent):**
+   - Client sends POST `/api/v1/payment/initiate` with a `client_request_id`.
+   - Payment service creates a record in `INITIATED` status. If the ID exists, it returns the existing record.
 
-2. **Gateway Processing:**
-   - `GatewayJwtFilter` extracts JWT token from cookie.
-   - Validates token signature using public key (RS256).
-   - Extracts user ID from token claims.
-   - Routes request to payment-service via Eureka service discovery.
+2. **Phase 1: Fund Reservation:**
+   - Client calls POST `/api/v1/payment/{id}/process`.
+   - Payment service calls `wallet-service` to **reserve** funds.
+   - Wallet service moves funds from `balance` to `reserved_balance` and creates a `PENDING` transaction.
 
-3. **Service Discovery:**
-   - Gateway uses Eureka client to resolve service name `paymentservice` to actual instance(s).
-   - Eureka returns the registered payment-service instance with its host and port.
-   - Gateway forwards the request to the resolved payment-service endpoint.
+3. **Phase 2: External Charge:**
+   - Payment service calls the `MockPaymentProviderClient` to charge the external gateway.
+   - Implements **exponential backoff retries** (1s, 2s, 4s) for transient network or provider errors.
 
-4. **Payment Service Processing:**
-   - Validates `client_request_id` for idempotency.
-   - Calls wallet-service via OpenFeign to deduct funds.
-   - Wallet service uses optimistic locking (`@Version`) to prevent concurrent updates.
-   - If conflict occurs, retries up to 3 times with exponential backoff.
+4. **Phase 3: Confirmation/Rollback:**
+   - **On Success:** Payment service calls `wallet-service` to **confirm** reservation. Wallet deducts from `balance` and clears `reserved_balance`.
+   - **On Failure:** Payment service calls `wallet-service` to **cancel** reservation. Funds are released back to the available balance.
 
-5. **Response Flow:**
-   - Payment service returns payment status.
-   - Response flows back through gateway to client.
+5. **Status Polling (Optional):**
+   - If the provider returns `PENDING`, the client can poll `/api/v1/payment/{id}/status` to trigger a status sync with the provider.
 
 **Error Scenarios:**
 
@@ -180,11 +179,12 @@ Netflix Eureka server for service registration and discovery.
 
 ### Payment Service (Port 8083)
 
-- Payment initiation and processing
-- Payment provider abstraction layer
+- Payment initiation and processing using 2PC (Reserve-Confirm/Cancel)
+- Payment provider abstraction layer with Mock implementation
 - Idempotency key handling via `client_request_id`
-- Payment status tracking
-- Integration with wallet service for fund deduction
+- Exponential backoff retry logic for provider calls
+- Support for `PENDING` payment status polling and reconciliation
+- Integration with wallet service for fund reservation
 
 ### Common Module
 
@@ -474,6 +474,28 @@ This section explains key architectural and design decisions made during develop
 - **Coupling Risk:** Services are still coupled to the same database instance, though schemas provide logical isolation.
 
 **Production Consideration:** In production with high load, we would migrate to separate database instances per service for true isolation and independent scaling.
+
+### Distributed Transactions (Two-Phase Commit)
+
+**Decision:** Use a simplified Two-Phase Commit (2PC) pattern for cross-service payment consistency.
+
+**Rationale:**
+- **Data Integrity:** Ensures that we don't charge a user if we can't reserve their funds, and we don't keep funds locked if the charge fails.
+- **Phase 1 (Prepare):** Wallet service "reserves" funds. This guarantees the money is available and blocked from other transactions.
+- **Phase 2 (Commit/Rollback):** Based on the external provider's response, the payment service instructs the wallet to either "confirm" (permanent deduction) or "cancel" (release back to balance).
+
+**Trade-offs:**
+- **Orchestration Overhead:** The Payment Service acts as the orchestrator, increasing its complexity.
+- **Zombie Reservations:** If the Payment Service crashes mid-flow, funds might stay reserved. *Future Fix: Implement a reconciliation worker to clean up expired reservations.*
+
+### Mock Payment Provider Strategy
+
+**Decision:** Implement a feature-rich `MockPaymentProviderClient` instead of a simple stub.
+
+**Features:**
+- **Deterministic Testing:** Use tokens like `tok_success`, `tok_decline`, or `tok_retry` to trigger specific flows.
+- **Reliability Simulation:** Configurable `successRate` and `latency` to test circuit breakers and timeouts.
+- **Stateful:** Stores transactions in-memory to support status polling (`getTransactionStatus`).
 
 ### Idempotency in Payments
 
