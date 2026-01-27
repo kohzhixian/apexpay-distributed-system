@@ -1,5 +1,6 @@
 package com.apexpay.userservice.security;
 
+import com.apexpay.userservice.constants.AuthConstants;
 import com.apexpay.userservice.entity.Users;
 import io.jsonwebtoken.Jwts;
 import lombok.extern.slf4j.Slf4j;
@@ -42,8 +43,8 @@ public class JwtService {
      */
     public String generateToken(Users user) {
         Map<String, Object> extraClaims = new HashMap<>();
-        extraClaims.put("email", user.getEmail());
-        extraClaims.put("username", user.getUsername());
+        extraClaims.put(AuthConstants.JWT_CLAIM_EMAIL, user.getEmail());
+        extraClaims.put(AuthConstants.JWT_CLAIM_USERNAME, user.getUsername());
 
         return Jwts.builder()
                 .claims()
@@ -51,8 +52,8 @@ public class JwtService {
                 .subject(user.getId().toString())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + jwtTimeout))
-                .issuer("apexpay-user-service")
-                .audience().add("apexpay-api").and()
+                .issuer(AuthConstants.JWT_ISSUER)
+                .audience().add(AuthConstants.JWT_AUDIENCE).and()
                 .id(UUID.randomUUID().toString())
                 .and()
                 .signWith(privateKey)
@@ -69,24 +70,24 @@ public class JwtService {
         try {
             String pem = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
-            if (pem.contains("-----BEGIN RSA PRIVATE KEY-----")) {
+            if (pem.contains(AuthConstants.PKCS1_PRIVATE_KEY_HEADER)) {
                 throw new IllegalStateException(
-                        "PKCS#1 format (-----BEGIN RSA PRIVATE KEY-----) is not supported. " +
+                        "PKCS#1 format (" + AuthConstants.PKCS1_PRIVATE_KEY_HEADER + ") is not supported. " +
                                 "Please convert to PKCS#8 using: openssl pkcs8 -topk8 -nocrypt -in key.pem -out key-pkcs8.pem");
             }
 
-            if (!pem.contains("-----BEGIN PRIVATE KEY-----")) {
+            if (!pem.contains(AuthConstants.PKCS8_PRIVATE_KEY_HEADER)) {
                 throw new IllegalStateException(
-                        "Invalid private key format. Expected PKCS#8 (-----BEGIN PRIVATE KEY-----)");
+                        "Invalid private key format. Expected PKCS#8 (" + AuthConstants.PKCS8_PRIVATE_KEY_HEADER + ")");
             }
 
             String base64 = pem
-                    .replace("-----BEGIN PRIVATE KEY-----", "")
-                    .replace("-----END PRIVATE KEY-----", "")
+                    .replace(AuthConstants.PKCS8_PRIVATE_KEY_HEADER, "")
+                    .replace(AuthConstants.PKCS8_PRIVATE_KEY_FOOTER, "")
                     .replaceAll("\\s", "");
 
             byte[] keyBytes = Base64.getDecoder().decode(base64);
-            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            KeyFactory keyFactory = KeyFactory.getInstance(AuthConstants.KEY_ALGORITHM_RSA);
             return keyFactory.generatePrivate(new PKCS8EncodedKeySpec(keyBytes));
         } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
             throw new IllegalStateException("Failed to load private key", e);

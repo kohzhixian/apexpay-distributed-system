@@ -1,5 +1,8 @@
 package com.apexpay.userservice.service;
 
+import com.apexpay.common.constants.ErrorMessages;
+import com.apexpay.common.constants.ResponseMessages;
+import com.apexpay.userservice.constants.AuthConstants;
 import com.apexpay.userservice.dto.RefreshTokenCookieText;
 import com.apexpay.userservice.dto.RefreshTokenObj;
 import com.apexpay.userservice.dto.request.LoginRequest;
@@ -87,11 +90,11 @@ public class UserService {
     public RegisterResponse register(RegisterRequest registerRequest, HttpServletResponse response,
             HttpServletRequest request) {
         if (checkIfUsernameExist(registerRequest.username())) {
-            throw new BusinessException(ErrorCode.USERNAME_EXISTS, "Username already taken.");
+            throw new BusinessException(ErrorCode.USERNAME_EXISTS, ErrorMessages.USERNAME_ALREADY_TAKEN);
         }
 
         if (checkIfUserEmailExist(registerRequest.email())) {
-            throw new BusinessException(ErrorCode.EMAIL_EXISTS, "Email already registered.");
+            throw new BusinessException(ErrorCode.EMAIL_EXISTS, ErrorMessages.EMAIL_ALREADY_REGISTERED);
         }
 
         String encodedPassword = passwordEncoder.encode(registerRequest.password());
@@ -104,7 +107,7 @@ public class UserService {
 
         userRepository.save(newUser);
         generateAndStoreTokens(newUser, request, response, familyId);
-        return new RegisterResponse("Registration was completed successfully.");
+        return new RegisterResponse(ResponseMessages.REGISTRATION_SUCCESS);
     }
 
     /**
@@ -122,11 +125,11 @@ public class UserService {
                 UUID familyId = UUID.randomUUID();
                 refreshtokenRepository.revokeAllRefreshTokensByUserId(user.getId());
                 generateAndStoreTokens(user, request, response, familyId);
-                return new LoginResponse("Login Success.");
+                return new LoginResponse(ResponseMessages.LOGIN_SUCCESS);
             }
         } catch (AuthenticationException e) {
             log.error("Authentication failed: {}", e.getMessage());
-            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, "Invalid email or password.");
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS, ErrorMessages.INVALID_EMAIL_OR_PASSWORD);
         }
 
         throw new BusinessException(ErrorCode.AUTHENTICATION_FAILED);
@@ -139,11 +142,11 @@ public class UserService {
      */
     @Transactional
     public void refresh(HttpServletRequest request, HttpServletResponse response) {
-        String refreshTokenCookieText = cookieUtils.getCookieValue(request, "refresh_token");
+        String refreshTokenCookieText = cookieUtils.getCookieValue(request, AuthConstants.COOKIE_REFRESH_TOKEN);
         String ipAddress = request.getRemoteAddr();
 
         if (refreshTokenCookieText == null || refreshTokenCookieText.isBlank()) {
-            throw new BusinessException(ErrorCode.TOKEN_MISSING, "Refresh token not found.");
+            throw new BusinessException(ErrorCode.TOKEN_MISSING, ErrorMessages.REFRESH_TOKEN_NOT_FOUND);
         }
 
         RefreshTokenCookieText refreshTokenCookieTextObj = splitRefreshTokenCookieText(refreshTokenCookieText);
@@ -154,7 +157,7 @@ public class UserService {
                 .findByIdAndIpAddressForUpdate(refreshTokenCookieTextObj.refreshTokenId(), ipAddress)
                 .orElseThrow(() -> {
                     log.error("Invalid refresh token");
-                    return new BusinessException(ErrorCode.TOKEN_INVALID, "Invalid refresh token.");
+                    return new BusinessException(ErrorCode.TOKEN_INVALID, ErrorMessages.INVALID_REFRESH_TOKEN);
                 });
 
         // Check token states AFTER acquiring lock
@@ -173,16 +176,16 @@ public class UserService {
             refreshToken.setRevoked(true);
             refreshtokenRepository.save(refreshToken);
 
-            throw new BusinessException(ErrorCode.TOKEN_REUSE_DETECTED, "Security alert: Token reuse detected.");
+            throw new BusinessException(ErrorCode.TOKEN_REUSE_DETECTED, ErrorMessages.TOKEN_REUSE_DETECTED);
         }
 
         if (refreshToken.isRevoked() || refreshToken.getExpiryDate().isBefore(Instant.now())) {
-            throw new BusinessException(ErrorCode.TOKEN_INVALID, "Refresh token expired or revoked.");
+            throw new BusinessException(ErrorCode.TOKEN_INVALID, ErrorMessages.REFRESH_TOKEN_EXPIRED_OR_REVOKED);
         }
 
         if (!passwordEncoder.matches(refreshTokenCookieTextObj.rawRefreshToken(),
                 refreshToken.getHashedRefreshToken())) {
-            throw new BusinessException(ErrorCode.TOKEN_INVALID, "Refresh token verification failed.");
+            throw new BusinessException(ErrorCode.TOKEN_INVALID, ErrorMessages.REFRESH_TOKEN_VERIFICATION_FAILED);
         }
 
         Users user = refreshToken.getUser();
@@ -196,24 +199,24 @@ public class UserService {
     }
 
     private void storeAccessTokenIntoHeader(String accessToken, HttpServletResponse response) {
-        ResponseCookie accessTokenCookie = ResponseCookie.from("access_token", accessToken)
+        ResponseCookie accessTokenCookie = ResponseCookie.from(AuthConstants.COOKIE_ACCESS_TOKEN, accessToken)
                 .httpOnly(true)
                 .secure(cookieSecureValue)
-                .path("/")
+                .path(AuthConstants.COOKIE_PATH_ROOT)
                 .maxAge(jwtTimeout / 1000)
-                .sameSite("Strict")
+                .sameSite(AuthConstants.COOKIE_SAME_SITE_STRICT)
                 .build();
 
         response.addHeader(HttpHeaders.SET_COOKIE, accessTokenCookie.toString());
     }
 
     private void storeRefreshTokenIntoHeader(String refreshToken, HttpServletResponse response) {
-        ResponseCookie refreshTokenCookie = ResponseCookie.from("refresh_token", refreshToken)
+        ResponseCookie refreshTokenCookie = ResponseCookie.from(AuthConstants.COOKIE_REFRESH_TOKEN, refreshToken)
                 .httpOnly(true)
                 .secure(cookieSecureValue)
-                .path("/api/v1/auth/refresh")
+                .path(AuthConstants.COOKIE_PATH_REFRESH)
                 .maxAge(refreshTokenTimeout / 1000)
-                .sameSite("Strict")
+                .sameSite(AuthConstants.COOKIE_SAME_SITE_STRICT)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
     }
@@ -250,21 +253,21 @@ public class UserService {
 
         RefreshTokenObj refreshTokenObj = generateRefreshToken(request, user, familyId);
         RefreshTokens refreshTokenResponse = refreshtokenRepository.save(refreshTokenObj.entity());
-        String refreshTokenCookieText = refreshTokenResponse.getId().toString() + ":" + refreshTokenObj.refreshToken();
+        String refreshTokenCookieText = refreshTokenResponse.getId().toString() + AuthConstants.REFRESH_TOKEN_SEPARATOR + refreshTokenObj.refreshToken();
         storeRefreshTokenIntoHeader(refreshTokenCookieText, response);
     }
 
     private RefreshTokenCookieText splitRefreshTokenCookieText(String refreshTokenCookieText) {
-        String[] parts = refreshTokenCookieText.split(":", 2);
+        String[] parts = refreshTokenCookieText.split(AuthConstants.REFRESH_TOKEN_SEPARATOR, 2);
         if (parts.length != 2) {
-            throw new BusinessException(ErrorCode.TOKEN_INVALID, "Invalid refresh token format.");
+            throw new BusinessException(ErrorCode.TOKEN_INVALID, ErrorMessages.INVALID_REFRESH_TOKEN_FORMAT);
         }
 
         UUID refreshTokenId;
         try {
             refreshTokenId = UUID.fromString(parts[0]);
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.TOKEN_INVALID, "Invalid refresh token format.");
+            throw new BusinessException(ErrorCode.TOKEN_INVALID, ErrorMessages.INVALID_REFRESH_TOKEN_FORMAT);
         }
 
         return new RefreshTokenCookieText(refreshTokenId, parts[1]);
