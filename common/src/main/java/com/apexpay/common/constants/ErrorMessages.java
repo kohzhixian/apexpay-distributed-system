@@ -47,6 +47,7 @@ public final class ErrorMessages {
     public static final String MAX_RETRIES_EXCEEDED_WITH_MSG = "Max retries exceeded: %s";
     public static final String UNEXPECTED_ERROR = "Unexpected error: %s";
     public static final String RETRY_INTERRUPTED = "Retry interrupted.";
+    public static final String CONCURRENT_PAYMENT_UPDATE = "Payment was modified by another process. Please try again.";
 
     // Generic errors
     public static final String UNEXPECTED_ERROR_OCCURRED = "An unexpected error occurred.";

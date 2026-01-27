@@ -31,18 +31,6 @@ public interface PaymentRepository extends JpaRepository<Payments, UUID> {
     Optional<Payments> findByClientRequestIdAndUserId(String clientRequestId, UUID userId);
 
     /**
-     * Finds a payment by payment ID and user ID.
-     * <p>
-     * Ensures the payment belongs to the specified user for authorization checks.
-     * </p>
-     *
-     * @param paymentId the payment ID
-     * @param userId the user ID who should own the payment
-     * @return optional payment if found and belongs to user, empty otherwise
-     */
-    Optional<Payments> findByIdAndUserId(UUID paymentId, UUID userId);
-
-    /**
      * Updates payment to SUCCESS status with optimistic locking.
      * <p>
      * Atomically updates payment status, external transaction ID, and version
@@ -58,6 +46,28 @@ public interface PaymentRepository extends JpaRepository<Payments, UUID> {
     @Modifying
     @Query("UPDATE Payments p SET p.status = 'SUCCESS', p.externalTransactionId = :externalTransactionId, p.version = p.version + 1 WHERE p.id = :paymentId AND p.version = :version")
     int updatePaymentSuccess(@Param("paymentId") UUID paymentId, @Param("externalTransactionId") String externalTransactionId, @Param("version") Long version);
+
+    /**
+     * Updates payment to PENDING status with external transaction ID and wallet transaction ID.
+     * Uses optimistic locking to prevent concurrent modification conflicts.
+     * <p>
+     * Atomically updates payment status, external transaction ID, provider name, wallet transaction ID,
+     * and version only if the version matches (prevents concurrent modification conflicts).
+     * Returns the number of rows updated (0 if version mismatch).
+     * </p>
+     *
+     * @param paymentId the payment ID to update
+     * @param externalTransactionId the provider's transaction identifier
+     * @param providerName the name of the payment provider
+     * @param walletTransactionId the wallet transaction ID created during fund reservation
+     * @param version the expected current version (for optimistic locking)
+     * @return number of rows updated (1 if successful, 0 if version mismatch)
+     */
+    @Modifying
+    @Query("UPDATE Payments p SET p.status = 'PENDING', p.externalTransactionId = :externalTransactionId, p.provider = :providerName, p.walletTransactionId = :walletTransactionId, p.version = p.version + 1 WHERE p.id = :paymentId AND p.version = :version")
+    int updatePaymentPending(@Param("paymentId") UUID paymentId, @Param("externalTransactionId") String externalTransactionId,
+                            @Param("providerName") String providerName, @Param("walletTransactionId") UUID walletTransactionId,
+                            @Param("version") Long version);
 
     /**
      * Updates payment to FAILED status with optimistic locking.
@@ -76,20 +86,5 @@ public interface PaymentRepository extends JpaRepository<Payments, UUID> {
     @Query("UPDATE Payments p SET p.status = 'FAILED', p.failureCode = :failureCode, p.failureMessage = :failureMessage, p.version = p.version + 1 WHERE p.id = :paymentId AND p.version = :version")
     int updatePaymentFailed(@Param("paymentId") UUID paymentId, @Param("failureCode") String failureCode,
                             @Param("failureMessage") String failureMessage, @Param("version") Long version);
-
-    /**
-     * Updates the external transaction ID for a payment.
-     * <p>
-     * Used to store the provider's transaction identifier after a successful charge.
-     * This method does not use optimistic locking and should be used with caution.
-     * </p>
-     *
-     * @param paymentId the payment ID to update
-     * @param externalTransactionId the provider's transaction identifier
-     * @return number of rows updated
-     */
-    @Modifying
-    @Query("UPDATE Payments p SET p.externalTransactionId = :externalTransactionId WHERE p.id = :paymentId")
-    int updateExternalTransactionId(@Param("paymentId") UUID paymentId, @Param("externalTransactionId") String externalTransactionId);
 
 }

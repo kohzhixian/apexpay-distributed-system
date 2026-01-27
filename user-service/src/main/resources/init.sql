@@ -80,6 +80,7 @@ CREATE TABLE paymentservice.payments(
     provider VARCHAR(50),
     version BIGINT NOT NULL DEFAULT 0,
     wallet_id UUID NOT NULL,
+    wallet_transaction_id UUID, -- Links to wallet transaction created during fund reservation (only required when status is at pending so user is able to check status of transaction)
     failure_code VARCHAR(50),
     failure_message VARCHAR(500),
     external_transaction_id VARCHAR(100) NOT NULL,

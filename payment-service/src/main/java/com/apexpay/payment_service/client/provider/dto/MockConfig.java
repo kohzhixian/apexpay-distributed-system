@@ -24,6 +24,9 @@ public record MockConfig(double successRate, long minLatencyMs, long maxLatencyM
 
     /**
      * Returns configuration for always succeeding (100% success rate).
+     * <p>
+     * Useful for unit/integration tests that require deterministic success behavior.
+     * </p>
      *
      * @return MockConfig with 100% success rate
      */
@@ -33,6 +36,9 @@ public record MockConfig(double successRate, long minLatencyMs, long maxLatencyM
 
     /**
      * Returns configuration for always failing (0% success rate).
+     * <p>
+     * Useful for unit/integration tests that require deterministic failure behavior.
+     * </p>
      *
      * @return MockConfig with 0% success rate
      */
@@ -42,6 +48,10 @@ public record MockConfig(double successRate, long minLatencyMs, long maxLatencyM
 
     /**
      * Returns configuration with no latency simulation.
+     * <p>
+     * Useful for fast-running unit/integration tests where latency simulation
+     * is not needed or would slow down test execution.
+     * </p>
      *
      * @return MockConfig with 0ms latency
      */

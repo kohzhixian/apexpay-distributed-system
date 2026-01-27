@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -73,12 +74,32 @@ public class PaymentController {
      * @param paymentId the ID of the payment to process
      * @param request   the process payment request containing paymentMethodToken
      * @param userId    the authenticated user's ID from the X-USER-ID header
-     * @return response with final payment status (SUCCESS or FAILED)
+     * @return response with final payment status (SUCCESS, PENDING, or FAILED)
      */
     @PostMapping("/{paymentId}/process")
     public ResponseEntity<PaymentResponse> processPayment(@PathVariable("paymentId") UUID paymentId,
             @RequestBody ProcessPaymentRequest request, @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         PaymentResponse response = paymentService.processPayment(paymentId, userId, request.paymentMethodToken());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Checks the status of a pending payment with the payment provider.
+     * <p>
+     * Used to poll for status updates when a payment is in PENDING state.
+     * Queries the payment provider for the current transaction status and
+     * updates the payment accordingly. If the payment is not in PENDING status,
+     * returns the current status without querying the provider.
+     * </p>
+     *
+     * @param paymentId the ID of the payment to check
+     * @param userId     the authenticated user's ID from the X-USER-ID header
+     * @return response with current payment status
+     */
+    @GetMapping("/{paymentId}/status")
+    public ResponseEntity<PaymentResponse> checkPaymentStatus(@PathVariable("paymentId") UUID paymentId,
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        PaymentResponse response = paymentService.checkPaymentStatus(paymentId, userId);
         return ResponseEntity.ok(response);
     }
 }

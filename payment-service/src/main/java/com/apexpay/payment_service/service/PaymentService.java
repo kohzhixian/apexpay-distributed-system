@@ -10,6 +10,7 @@ import com.apexpay.common.exception.ErrorCode;
 import com.apexpay.payment_service.client.provider.dto.ProviderChargeRequest;
 import com.apexpay.payment_service.client.provider.dto.ProviderChargeResponse;
 import com.apexpay.payment_service.client.provider.enums.ProviderFailureCode;
+import com.apexpay.payment_service.client.provider.enums.ProviderTransactionStatus;
 import com.apexpay.payment_service.client.provider.exception.PaymentProviderException;
 import com.apexpay.payment_service.client.provider.interfaces.PaymentProviderClient;
 import com.apexpay.payment_service.dto.InitiatePaymentRequest;
@@ -163,8 +164,6 @@ public class PaymentService {
                     paymentRecord.getWalletId());
             walletTransactionId = reserveResponse.walletTransactionId();
 
-            paymentRecord = updatePaymentToPending(paymentRecord);
-
             ProviderChargeResponse chargeResponse = chargeWithRetry(paymentRecord, paymentMethodToken);
 
             if (chargeResponse.isSuccessful()) {
@@ -177,6 +176,16 @@ public class PaymentService {
 
                 return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.SUCCESS,
                         ResponseMessages.PAYMENT_SUCCEEDED);
+            }
+
+            // Handle PENDING status - payment submitted but not yet confirmed
+            if (chargeResponse.status() == ProviderTransactionStatus.PENDING) {
+                // Store external transaction ID and wallet transaction ID for later status polling
+                paymentRecord = updatePaymentToPendingWithExternalId(paymentRecord, chargeResponse, walletTransactionId);
+                logger.info("Payment {} is pending. ExternalTransactionId: {}, WalletTransactionId: {}",
+                        paymentRecord.getId(), chargeResponse.externalTransactionId(), walletTransactionId);
+                return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.PENDING,
+                        ResponseMessages.PAYMENT_PENDING);
             }
 
             // handle failure - charge returned failed response
@@ -192,6 +201,97 @@ public class PaymentService {
 
             updatePaymentToFailure(paymentRecord, e.getFailureCode(), e.getMessage());
 
+            throw new BusinessException(ErrorCode.PAYMENT_CHARGE_FAILED, e.getMessage());
+        }
+    }
+
+    /**
+     * Checks the status of a pending payment with the payment provider.
+     * <p>
+     * Used to poll for status updates when a payment is in PENDING state.
+     * Calls the provider's getTransactionStatus() method to retrieve the
+     * current transaction status and updates the payment accordingly.
+     * </p>
+     *
+     * @param paymentId the ID of the payment to check
+     * @param userId    the authenticated user's ID
+     * @return response with updated payment status
+     * @throws BusinessException if payment not found, unauthorized, or not in
+     *                           PENDING status
+     */
+    public PaymentResponse checkPaymentStatus(UUID paymentId, String userId) {
+        UUID userUuid = UUID.fromString(userId);
+        Payments payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND,
+                        ErrorMessages.PAYMENT_NOT_FOUND));
+
+        // Check if payment belongs to user
+        if (!payment.getUserId().equals(userUuid)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, ErrorMessages.PAYMENT_ACCESS_DENIED);
+        }
+
+        // Only check status for PENDING payments
+        if (payment.getStatus() != PaymentStatusEnum.PENDING) {
+            return new PaymentResponse(payment.getId(), payment.getStatus(),
+                    String.format("Payment is already in %s status.", payment.getStatus()));
+        }
+
+        // Must have external transaction ID to query provider
+        if (payment.getExternalTransactionId() == null || payment.getExternalTransactionId().isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT,
+                    "Payment does not have an external transaction ID for status checking.");
+        }
+
+        try {
+            // Query provider for current transaction status
+            ProviderChargeResponse providerResponse = paymentProviderClient
+                    .getTransactionStatus(payment.getExternalTransactionId());
+
+            if (providerResponse.isSuccessful()) {
+                // Payment succeeded - confirm reservation and update status
+                UUID walletTxId = payment.getWalletTransactionId();
+                if (walletTxId != null) {
+                    try {
+                        walletClient.confirmReservation(
+                                new ConfirmReservationRequest(walletTxId, providerResponse.externalTransactionId(),
+                                        providerResponse.providerName()),
+                                userId, payment.getWalletId());
+                        logger.info("Reservation confirmed for payment {}. WalletTransactionId: {}", paymentId, walletTxId);
+                    } catch (Exception e) {
+                        logger.error("Failed to confirm reservation for payment {}. WalletTransactionId: {}",
+                                paymentId, walletTxId, e);
+                        // Continue with payment status update even if confirmation fails
+                        // The reservation can be confirmed later via reconciliation
+                    }
+                } else {
+                    logger.warn("Payment {} succeeded but walletTransactionId is null. Reservation confirmation skipped.",
+                            paymentId);
+                }
+
+                payment = updatePaymentToSuccess(payment, providerResponse);
+                return new PaymentResponse(payment.getId(), PaymentStatusEnum.SUCCESS,
+                        ResponseMessages.PAYMENT_SUCCEEDED);
+            } else if (providerResponse.status() == ProviderTransactionStatus.PENDING) {
+                // Still pending
+                return new PaymentResponse(payment.getId(), PaymentStatusEnum.PENDING,
+                        ResponseMessages.PAYMENT_PENDING);
+            } else {
+                // Payment failed - cancel reservation and update status
+                UUID walletTxId = payment.getWalletTransactionId();
+                if (walletTxId != null) {
+                    cancelReservationSafely(walletTxId, userId, payment.getWalletId());
+                } else {
+                    logger.warn("Payment {} failed but walletTransactionId is null. Reservation cancellation skipped.",
+                            paymentId);
+                }
+
+                payment = updatePaymentToFailure(payment, providerResponse.failureCode(),
+                        providerResponse.failureMessage());
+                throw new BusinessException(ErrorCode.PAYMENT_CHARGE_FAILED,
+                        providerResponse.failureMessage());
+            }
+        } catch (PaymentProviderException e) {
+            logger.error("Error checking payment status with provider. PaymentId: {}", paymentId, e);
             throw new BusinessException(ErrorCode.PAYMENT_CHARGE_FAILED, e.getMessage());
         }
     }
@@ -334,50 +434,114 @@ public class PaymentService {
     }
 
     /**
-     * Updates payment status to PENDING and persists immediately.
-     * Runs in its own transaction to ensure state is saved even if later operations
-     * fail.
+     * Updates payment to PENDING status with external transaction ID and wallet transaction ID.
+     * Uses optimistic locking to prevent concurrent modification conflicts.
+     * <p>
+     * Used after provider responds (SUCCESS or PENDING) to store the external transaction ID
+     * and wallet transaction ID. This ensures we have the necessary information for:
+     * <ul>
+     * <li>Status polling (if PENDING)</li>
+     * <li>Reconciliation (if SUCCESS)</li>
+     * <li>Audit trail</li>
+     * </ul>
+     * </p>
      *
-     * @param payment the payment entity to update
+     * @param payment            the payment entity to update
+     * @param response           the charge response from provider (SUCCESS or PENDING)
+     * @param walletTransactionId the wallet transaction ID created during fund reservation
      * @return the updated and persisted payment entity
+     * @throws BusinessException if concurrent modification detected (version mismatch)
      */
     @Transactional
-    protected Payments updatePaymentToPending(Payments payment) {
-        payment.setStatus(PaymentStatusEnum.PENDING);
-        return paymentRepository.save(payment);
+    private Payments updatePaymentToPendingWithExternalId(Payments payment, ProviderChargeResponse response,
+            UUID walletTransactionId) {
+        Long currentVersion = payment.getVersion();
+        int updated = paymentRepository.updatePaymentPending(
+                payment.getId(),
+                response.externalTransactionId(),
+                response.providerName(),
+                walletTransactionId,
+                currentVersion);
+
+        if (updated == 0) {
+            logger.warn("Concurrent payment update detected. PaymentId: {}, ExpectedVersion: {}",
+                    payment.getId(), currentVersion);
+            throw new BusinessException(ErrorCode.CONCURRENT_MODIFICATION,
+                    ErrorMessages.CONCURRENT_PAYMENT_UPDATE);
+        }
+
+        // Reload to get updated entity with new version
+        return paymentRepository.findById(payment.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND,
+                        ErrorMessages.PAYMENT_NOT_FOUND));
     }
 
     /**
      * Updates payment to SUCCESS status with provider transaction details.
+     * Uses optimistic locking to prevent concurrent modification conflicts.
      * Stores externalTransactionId for reconciliation and refund operations.
      *
      * @param payment  the payment entity to update
      * @param response the successful charge response from provider
      * @return the updated and persisted payment entity
+     * @throws BusinessException if concurrent modification detected (version
+     *                           mismatch)
      */
     @Transactional
-    protected Payments updatePaymentToSuccess(Payments payment, ProviderChargeResponse response) {
-        payment.setStatus(PaymentStatusEnum.SUCCESS);
-        payment.setExternalTransactionId(response.externalTransactionId());
-        payment.setProvider(response.providerName());
-        return paymentRepository.save(payment);
+    private Payments updatePaymentToSuccess(Payments payment, ProviderChargeResponse response) {
+        Long currentVersion = payment.getVersion();
+        int updated = paymentRepository.updatePaymentSuccess(
+                payment.getId(),
+                response.externalTransactionId(),
+                currentVersion);
+
+        if (updated == 0) {
+            logger.warn("Concurrent payment update detected. PaymentId: {}, ExpectedVersion: {}",
+                    payment.getId(), currentVersion);
+            throw new BusinessException(ErrorCode.CONCURRENT_MODIFICATION,
+                    ErrorMessages.CONCURRENT_PAYMENT_UPDATE);
+        }
+
+        // Reload to get updated entity with new version
+        return paymentRepository.findById(payment.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND,
+                        ErrorMessages.PAYMENT_NOT_FOUND));
     }
 
     /**
      * Updates payment to FAILED status with failure details.
+     * Uses optimistic locking to prevent concurrent modification conflicts.
      * Stores failureCode and failureMessage for debugging and customer support.
      *
      * @param payment        the payment entity to update
      * @param failureCode    the provider-specific failure code (maybe null)
      * @param failureMessage human-readable failure description
      * @return the updated and persisted payment entity
+     * @throws BusinessException if concurrent modification detected (version
+     *                           mismatch)
      */
     @Transactional
-    protected Payments updatePaymentToFailure(Payments payment, ProviderFailureCode failureCode,
+    private Payments updatePaymentToFailure(Payments payment, ProviderFailureCode failureCode,
             String failureMessage) {
-        payment.setStatus(PaymentStatusEnum.FAILED);
-        payment.setFailureCode(failureCode);
-        payment.setFailureMessage(failureMessage);
-        return paymentRepository.save(payment);
+        Long currentVersion = payment.getVersion();
+        String failureCodeStr = failureCode != null ? failureCode.name() : null;
+
+        int updated = paymentRepository.updatePaymentFailed(
+                payment.getId(),
+                failureCodeStr,
+                failureMessage,
+                currentVersion);
+
+        if (updated == 0) {
+            logger.warn("Concurrent payment update detected. PaymentId: {}, ExpectedVersion: {}",
+                    payment.getId(), currentVersion);
+            throw new BusinessException(ErrorCode.CONCURRENT_MODIFICATION,
+                    ErrorMessages.CONCURRENT_PAYMENT_UPDATE);
+        }
+
+        // Reload to get updated entity with new version
+        return paymentRepository.findById(payment.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND,
+                        ErrorMessages.PAYMENT_NOT_FOUND));
     }
 }
