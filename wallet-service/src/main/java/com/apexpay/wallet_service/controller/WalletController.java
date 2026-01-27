@@ -1,20 +1,20 @@
 package com.apexpay.wallet_service.controller;
 
 import com.apexpay.common.constants.HttpHeaders;
+import com.apexpay.common.dto.*;
 import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
-import com.apexpay.wallet_service.dto.request.PaymentRequest;
 import com.apexpay.wallet_service.dto.request.TopUpWalletRequest;
 import com.apexpay.wallet_service.dto.request.TransferRequest;
 import com.apexpay.wallet_service.dto.response.*;
 import com.apexpay.wallet_service.service.WalletService;
 import jakarta.validation.Valid;
-import org.hibernate.validator.constraints.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * REST controller for wallet operations.
@@ -35,7 +35,7 @@ public class WalletController {
      */
     @PostMapping
     public ResponseEntity<CreateWalletResponse> createWallet(@Valid @RequestBody CreateWalletRequest request,
-            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+                                                             @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         CreateWalletResponse response = walletService.createWallet(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -45,7 +45,7 @@ public class WalletController {
      */
     @PostMapping("/topup")
     public ResponseEntity<TopUpWalletResponse> topUpWallet(@Valid @RequestBody TopUpWalletRequest request,
-            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+                                                           @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         TopUpWalletResponse response = walletService.topUpWallet(request, userId);
         return ResponseEntity.ok(response);
     }
@@ -55,18 +55,8 @@ public class WalletController {
      */
     @PostMapping("/transfer")
     public ResponseEntity<TransferResponse> transfer(@Valid @RequestBody TransferRequest request,
-            @RequestHeader(HttpHeaders.X_USER_ID) String payerUserId) {
+                                                     @RequestHeader(HttpHeaders.X_USER_ID) String payerUserId) {
         TransferResponse response = walletService.transfer(request, payerUserId);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Processes a payment from a wallet.
-     */
-    @PostMapping("/payment")
-    public ResponseEntity<PaymentResponse> payment(@Valid @RequestBody PaymentRequest request,
-            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
-        PaymentResponse response = walletService.payment(request, userId);
         return ResponseEntity.ok(response);
     }
 
@@ -74,8 +64,8 @@ public class WalletController {
      * Returns the current wallet balance for the authenticated user.
      */
     @GetMapping("/{walletId}/balance")
-    public ResponseEntity<GetBalanceResponse> getBalance(@UUID @PathVariable("walletId") String walletId,
-            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+    public ResponseEntity<GetBalanceResponse> getBalance(@PathVariable("walletId") UUID walletId,
+                                                         @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         GetBalanceResponse response = walletService.getBalance(walletId, userId);
         return ResponseEntity.ok(response);
     }
@@ -86,10 +76,56 @@ public class WalletController {
      */
     @GetMapping("/{walletId}/history/{offset}")
     public ResponseEntity<List<GetTransactionHistoryResponse>> getTransactionHistory(
-            @UUID @PathVariable("walletId") String walletId,
+            @PathVariable("walletId") UUID walletId,
             @PathVariable("offset") int offset,
             @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         List<GetTransactionHistoryResponse> response = walletService.getTransactionHistory(walletId, userId, offset);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Reserves funds in a wallet for a pending payment.
+     * <p>
+     * Part of the two-phase commit pattern for payment processing. Moves funds
+     * from available balance to reserved balance.
+     * </p>
+     */
+    @PostMapping("/{walletId}/reserve")
+    public ResponseEntity<ReserveFundsResponse> reserveFunds(@RequestHeader(HttpHeaders.X_USER_ID) String userId,
+                                                             @PathVariable("walletId") UUID walletId,
+                                                             @Valid @RequestBody ReserveFundsRequest request) {
+        ReserveFundsResponse response = walletService.reserveFunds(request, userId, walletId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Confirms a fund reservation after successful payment.
+     * <p>
+     * Completes the two-phase commit by finalizing the reservation and
+     * deducting funds from the wallet balance.
+     * </p>
+     */
+    @PostMapping("/{walletId}/confirm")
+    public ResponseEntity<String> confirmReservation(@Valid @RequestBody ConfirmReservationRequest request,
+                                                     @PathVariable("walletId") UUID walletId,
+                                                     @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        String response = walletService.confirmReservation(request, userId, walletId);
+        return ResponseEntity.ok(response);
+
+    }
+
+    /**
+     * Cancels a fund reservation when payment fails.
+     * <p>
+     * Rolls back the two-phase commit by releasing reserved funds back
+     * to available balance.
+     * </p>
+     */
+    @PostMapping("/{walletId}/cancel")
+    public ResponseEntity<String> cancelReservation(@Valid @RequestBody CancelReservationRequest request,
+                                                    @PathVariable("walletId") UUID walletId,
+                                                    @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        String response = walletService.cancelReservation(request, userId, walletId);
         return ResponseEntity.ok(response);
     }
 }
