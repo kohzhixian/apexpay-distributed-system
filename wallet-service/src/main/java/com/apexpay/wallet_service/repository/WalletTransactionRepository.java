@@ -19,4 +19,7 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
 
     @Query("SELECT wt FROM WalletTransactions wt WHERE wt.id = :walletTransactionId AND wt.status = :status")
     Optional<WalletTransactions> findPendingTransactionById(@Param("walletTransactionId") UUID walletTransactionId, @Param("status") WalletTransactionStatusEnum status);
+
+    @Query("SELECT wt FROM WalletTransactions wt WHERE wt.referenceId = :referenceId AND wt.referenceType = :referenceType")
+    Optional<WalletTransactions> findByReferenceIdAndReferenceType(@Param("referenceId") String referenceId, @Param("referenceType") com.apexpay.wallet_service.enums.ReferenceTypeEnum referenceType);
 }

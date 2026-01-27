@@ -167,10 +167,29 @@ public class PaymentService {
             ProviderChargeResponse chargeResponse = chargeWithRetry(paymentRecord, paymentMethodToken);
 
             if (chargeResponse.isSuccessful()) {
-                walletClient.confirmReservation(
-                        new ConfirmReservationRequest(walletTransactionId, chargeResponse.externalTransactionId(),
-                                chargeResponse.providerName()),
-                        userId, paymentRecord.getWalletId());
+                try {
+                    walletClient.confirmReservation(
+                            new ConfirmReservationRequest(walletTransactionId, chargeResponse.externalTransactionId(),
+                                    chargeResponse.providerName()),
+                            userId, paymentRecord.getWalletId());
+                    logger.info("Reservation confirmed for payment {}. WalletTransactionId: {}", paymentId,
+                            walletTransactionId);
+                } catch (Exception e) {
+                    /*
+                     * CRITICAL: Eventual Consistency Logic
+                     * If the external charge succeeded but confirming the reservation fails (e.g., network error),
+                     * we MUST NOT throw an exception. Throwing an exception would roll back the payment status
+                     * to INITIATED/FAILED, telling the user their payment failed even though they were already
+                     * charged externally.
+                     *
+                     * Instead, we proceed to update the payment to SUCCESS. This ensures our system matches
+                     * the external reality (the user's bank account). The "stuck" reservation in the wallet
+                     * service is considered a "zombie" state that will be resolved by a background
+                     * reconciliation process or manual intervention.
+                     */
+                    logger.error("Failed to confirm reservation for payment {}. WalletTransactionId: {}",
+                            paymentId, walletTransactionId, e);
+                }
 
                 paymentRecord = updatePaymentToSuccess(paymentRecord, chargeResponse);
 
@@ -302,6 +321,11 @@ public class PaymentService {
      * <p>
      * Used to release reserved funds when payment fails. Errors are logged
      * but not propagated to ensure the main failure handling completes.
+     * This is a critical part of maintaining eventual consistency; even if the
+     * cancellation fails, the payment status is updated to FAILED so that
+     * a background reconciliation process can eventually clean up the "zombie"
+     * reservation.
+     * </p>
      *
      * @param walletTransactionId the reservation/transaction ID to cancel
      * @param userId              the user's ID for authorization

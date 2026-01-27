@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -100,7 +101,7 @@ public class WalletService {
      */
     @Transactional
     @Retryable(retryFor = {
-            ObjectOptimisticLockingFailureException.class}, backoff = @Backoff(delay = 100))
+            ObjectOptimisticLockingFailureException.class }, backoff = @Backoff(delay = 100))
     public TopUpWalletResponse topUpWallet(TopUpWalletRequest request, String userId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, request.walletId());
 
@@ -109,7 +110,8 @@ public class WalletService {
         existingWallet.setBalance(newBalance);
         walletRepository.save(existingWallet);
 
-        walletHelper.createTransaction(existingWallet, request.amount(), TransactionTypeEnum.CREDIT, TransactionDescriptions.TOP_UP_WALLET);
+        walletHelper.createTransaction(existingWallet, request.amount(), TransactionTypeEnum.CREDIT,
+                TransactionDescriptions.TOP_UP_WALLET, WalletTransactionStatusEnum.COMPLETED);
         logger.info("Top up successful. WalletId: {}, Amount: {}", existingWallet.getId(), request.amount());
         return new TopUpWalletResponse(ResponseMessages.WALLET_TOPUP_SUCCESS);
     }
@@ -119,7 +121,7 @@ public class WalletService {
      */
     @Recover
     public TopUpWalletResponse recoverTopUp(ObjectOptimisticLockingFailureException ex, TopUpWalletRequest request,
-                                            String userId) {
+            String userId) {
         logger.error("Topup failed after retries. UserId: {} , WalletID: {}", userId, request.walletId());
         throw new BusinessException(ErrorCode.CONCURRENT_MODIFICATION, ErrorMessages.CONCURRENT_UPDATE_RETRY);
     }
@@ -127,19 +129,24 @@ public class WalletService {
     /**
      * Transfers funds from payer wallet to receiver wallet.
      * <p>
-     * Atomically deducts funds from the payer's wallet and adds them to the receiver's
-     * wallet. Creates DEBIT and CREDIT transaction records respectively. Validates that
-     * wallets are different and payer has sufficient balance. Uses optimistic locking
-     * with automatic retry (up to 3 times) to handle concurrent modification conflicts.
+     * Atomically deducts funds from the payer's wallet and adds them to the
+     * receiver's
+     * wallet. Creates DEBIT and CREDIT transaction records respectively. Validates
+     * that
+     * wallets are different and payer has sufficient balance. Uses optimistic
+     * locking
+     * with automatic retry (up to 3 times) to handle concurrent modification
+     * conflicts.
      * </p>
      *
-     * @param request     the transfer request containing payer/receiver wallet IDs and amount
+     * @param request     the transfer request containing payer/receiver wallet IDs
+     *                    and amount
      * @param payerUserId the authenticated user ID of the payer
      * @return response confirming successful transfer
      */
     @Transactional
     @Retryable(retryFor = {
-            ObjectOptimisticLockingFailureException.class}, maxAttempts = 3, backoff = @Backoff(delay = 100))
+            ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public TransferResponse transfer(TransferRequest request, String payerUserId) {
         walletHelper.validateNotSameWallet(request.payerWalletId(), request.receiverWalletId());
 
@@ -161,7 +168,8 @@ public class WalletService {
         walletRepository.save(payerWallet);
 
         // add a new wallet transaction for payer wallet
-        walletHelper.createTransaction(payerWallet, request.amount(), TransactionTypeEnum.DEBIT, TransactionDescriptions.TRANSFER_DEBIT,
+        walletHelper.createTransaction(payerWallet, request.amount(), TransactionTypeEnum.DEBIT,
+                TransactionDescriptions.TRANSFER_DEBIT,
                 request.receiverWalletId().toString(), ReferenceTypeEnum.TRANSFER);
 
         // Add amount to receiver wallet
@@ -184,7 +192,7 @@ public class WalletService {
      */
     @Recover
     public TransferResponse recoverTransfer(ObjectOptimisticLockingFailureException e, TransferRequest request,
-                                            String payerUserId) {
+            String payerUserId) {
         logger.error("Transfer failed after retries. PayerUserId: {}", payerUserId);
         throw new BusinessException(ErrorCode.CONCURRENT_MODIFICATION, ErrorMessages.CONCURRENT_UPDATE_RETRY);
     }
@@ -242,13 +250,27 @@ public class WalletService {
      * to ensure atomicity.
      * </p>
      *
-     * @param request the reservation request containing amount, currency, and paymentId
-     * @param userId  the authenticated user's ID
+     * @param request  the reservation request containing amount, currency, and
+     *                 paymentId
+     * @param userId   the authenticated user's ID
      * @param walletId the wallet ID to reserve funds from
      * @return response containing walletTransactionId and remaining balance
      */
     @Transactional
     public ReserveFundsResponse reserveFunds(ReserveFundsRequest request, String userId, UUID walletId) {
+        // Idempotency check: check if reservation already exists for this paymentId
+        Optional<WalletTransactions> existingTx = walletTransactionRepository
+                .findByReferenceIdAndReferenceType(request.paymentId().toString(), ReferenceTypeEnum.PAYMENT);
+
+        if (existingTx.isPresent()) {
+            WalletTransactions tx = existingTx.get();
+            logger.info("Duplicate reservation request detected. Returning existing transaction: {}", tx.getId());
+            Wallets wallet = tx.getWallet();
+            // Calculate remaining balance based on current wallet state
+            BigDecimal remainingBalance = wallet.getBalance().subtract(wallet.getReservedBalance());
+            return new ReserveFundsResponse(tx.getId(), wallet.getId(), tx.getAmount(), remainingBalance);
+        }
+
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, walletId);
 
         walletHelper.validateSufficientBalance(existingWallet, request.amount());
@@ -261,7 +283,8 @@ public class WalletService {
         }
 
         // create pending transaction
-        WalletTransactions newWalletTransaction = createPendingTransaction(existingWallet, request.amount());
+        WalletTransactions newWalletTransaction = createPendingTransaction(existingWallet, request.amount(),
+                request.paymentId());
 
         logger.info("Funds reserved. WalletId: {}, Amount: {}, TransactionId: {}",
                 existingWallet.getId(), request.amount(), newWalletTransaction.getId());
@@ -280,9 +303,9 @@ public class WalletService {
      * returns success without error.
      * </p>
      *
-     * @param request the confirmation request containing walletTransactionId,
-     *                externalTransactionId, and provider name
-     * @param userId  the authenticated user's ID
+     * @param request  the confirmation request containing walletTransactionId,
+     *                 externalTransactionId, and provider name
+     * @param userId   the authenticated user's ID
      * @param walletId the wallet ID containing the reservation
      * @return success message (or "already completed" if idempotent call)
      */
@@ -328,8 +351,8 @@ public class WalletService {
      * success without error.
      * </p>
      *
-     * @param request the cancellation request containing walletTransactionId
-     * @param userId  the authenticated user's ID
+     * @param request  the cancellation request containing walletTransactionId
+     * @param userId   the authenticated user's ID
      * @param walletId the wallet ID containing the reservation
      * @return success message (or "already cancelled" if idempotent call)
      */
@@ -388,9 +411,10 @@ public class WalletService {
         throw new BusinessException(ErrorCode.RESERVATION_FAILURE, ErrorMessages.RESERVATION_FAILURE);
     }
 
-    private WalletTransactions createPendingTransaction(Wallets wallet, BigDecimal amount) {
+    private WalletTransactions createPendingTransaction(Wallets wallet, BigDecimal amount, UUID paymentId) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
+                .referenceId(paymentId.toString())
                 .referenceType(ReferenceTypeEnum.PAYMENT)
                 .description(TransactionDescriptions.RESERVE_FUNDS)
                 .transactionType(TransactionTypeEnum.DEBIT)

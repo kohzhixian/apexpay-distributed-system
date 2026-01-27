@@ -36,10 +36,11 @@ public class WalletHelper {
     }
 
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-                                  String description) {
+                                  String description, WalletTransactionStatusEnum walletTransactionStatus) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
+                .status(walletTransactionStatus)
                 .transactionType(transactionType)
                 .description(description)
                 .build();

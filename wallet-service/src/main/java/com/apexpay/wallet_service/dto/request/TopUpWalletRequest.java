@@ -3,7 +3,6 @@ package com.apexpay.wallet_service.dto.request;
 import com.apexpay.common.constants.ValidationMessages;
 import com.apexpay.common.enums.CurrencyEnum;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
@@ -24,7 +23,7 @@ public record TopUpWalletRequest(
         @NotNull(message = ValidationMessages.AMOUNT_REQUIRED)
         BigDecimal amount,
 
-        @NotBlank(message = ValidationMessages.WALLET_ID_REQUIRED)
+        @NotNull(message = ValidationMessages.WALLET_ID_REQUIRED)
         UUID walletId,
 
         CurrencyEnum currency) {

@@ -72,7 +72,7 @@ public class Payments {
     @Column(name = "wallet_transaction_id")
     private UUID walletTransactionId;
 
-    @Column(name = "external_transaction_id", nullable = false)
+    @Column(name = "external_transaction_id")
     private String externalTransactionId;
 
     @Column(length = 50)

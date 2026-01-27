@@ -16,7 +16,8 @@ import java.util.UUID;
  * <p>
  * Records all financial movements in a wallet including top-ups, transfers,
  * and payment reservations. Tracks transaction type (CREDIT/DEBIT), status
- * (PENDING/COMPLETED/CANCELLED), and references to related entities (e.g., payment ID).
+ * (PENDING/COMPLETED/CANCELLED), and references to related entities (e.g.,
+ * payment ID).
  * </p>
  */
 @Getter
@@ -39,7 +40,7 @@ public class WalletTransactions {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
-    @Column(name = "transaction_type", nullable = false, length = 6)
+    @Column(name = "transaction_type", nullable = false, length = 7)
     @Enumerated(EnumType.STRING)
     private TransactionTypeEnum transactionType;
 

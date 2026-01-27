@@ -54,7 +54,7 @@ public class PaymentController {
      * @return response containing paymentId and version for subsequent processing
      */
     @PostMapping
-    public ResponseEntity<InitiatePaymentResponse> initiatePayment(InitiatePaymentRequest request,
+    public ResponseEntity<InitiatePaymentResponse> initiatePayment(@RequestBody InitiatePaymentRequest request,
             @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         InitiatePaymentResponse response = paymentService.initiatePayment(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -93,7 +93,7 @@ public class PaymentController {
      * </p>
      *
      * @param paymentId the ID of the payment to check
-     * @param userId     the authenticated user's ID from the X-USER-ID header
+     * @param userId    the authenticated user's ID from the X-USER-ID header
      * @return response with current payment status
      */
     @GetMapping("/{paymentId}/status")
