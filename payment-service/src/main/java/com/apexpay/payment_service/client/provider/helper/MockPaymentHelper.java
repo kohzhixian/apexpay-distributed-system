@@ -3,12 +3,15 @@ package com.apexpay.payment_service.client.provider.helper;
 import com.apexpay.payment_service.client.provider.constants.MockProviderConstants;
 import com.apexpay.payment_service.client.provider.dto.MockConfig;
 import com.apexpay.payment_service.client.provider.dto.ProviderChargeResponse;
+import com.apexpay.payment_service.client.provider.enums.MockTestTokenOutcome;
 import com.apexpay.payment_service.client.provider.enums.ProviderFailureCode;
 import com.apexpay.payment_service.client.provider.exception.PaymentProviderException;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Helper class for mock payment provider behavior.
@@ -22,9 +25,16 @@ import java.util.UUID;
 public class MockPaymentHelper {
     private final MockConfig mockConfig;
     private final Random random = new Random();
+    private final Map<String, Supplier<ProviderChargeResponse>> testTokenHandlers;
 
     public MockPaymentHelper(MockConfig mockConfig) {
         this.mockConfig = mockConfig;
+        this.testTokenHandlers = buildTestTokenHandlers(null);
+    }
+
+    public MockPaymentHelper(MockConfig mockConfig, Map<String, MockTestTokenOutcome> testTokenOutcomes) {
+        this.mockConfig = mockConfig;
+        this.testTokenHandlers = buildTestTokenHandlers(testTokenOutcomes);
     }
 
     /**
@@ -108,93 +118,182 @@ public class MockPaymentHelper {
             return null;
         }
 
-        switch (token) {
-            case MockProviderConstants.TOKEN_VISA_SUCCESS -> {
-                return ProviderChargeResponse.success(generateExternalTransactionId(), MockProviderConstants.PROVIDER_NAME);
-            }
-
-            case MockProviderConstants.TOKEN_CARD_DECLINED -> {
-                return ProviderChargeResponse.failure(
-                        MockProviderConstants.PROVIDER_NAME,
-                        ProviderFailureCode.CARD_DECLINED,
-                        MockProviderConstants.MSG_CARD_DECLINED,
-                        false
-                );
-            }
-
-            case MockProviderConstants.TOKEN_INSUFFICIENT_FUNDS -> {
-                return ProviderChargeResponse.failure(
-                        MockProviderConstants.PROVIDER_NAME,
-                        ProviderFailureCode.INSUFFICIENT_FUNDS,
-                        MockProviderConstants.MSG_INSUFFICIENT_FUNDS,
-                        false
-                );
-            }
-
-            case MockProviderConstants.TOKEN_EXPIRED_CARD -> {
-                return ProviderChargeResponse.failure(
-                        MockProviderConstants.PROVIDER_NAME,
-                        ProviderFailureCode.EXPIRED_CARD,
-                        MockProviderConstants.MSG_CARD_EXPIRED,
-                        false
-                );
-            }
-
-            case MockProviderConstants.TOKEN_FRAUD_SUSPECTED -> {
-                return ProviderChargeResponse.failure(
-                        MockProviderConstants.PROVIDER_NAME,
-                        ProviderFailureCode.FRAUD_SUSPECTED,
-                        MockProviderConstants.MSG_FRAUD_SUSPECTED,
-                        false
-                );
-            }
-
-            case MockProviderConstants.TOKEN_NETWORK_ERROR -> {
-                // Throw exception for retryable errors
-                throw new PaymentProviderException(
-                        MockProviderConstants.MSG_NETWORK_TIMEOUT,
-                        ProviderFailureCode.NETWORK_ERROR,
-                        true,
-                        MockProviderConstants.PROVIDER_NAME
-                );
-            }
-
-            case MockProviderConstants.TOKEN_PROVIDER_UNAVAILABLE -> {
-                throw new PaymentProviderException(
-                        MockProviderConstants.MSG_PROVIDER_UNAVAILABLE,
-                        ProviderFailureCode.PROVIDER_UNAVAILABLE,
-                        true,
-                        MockProviderConstants.PROVIDER_NAME
-                );
-            }
-
-            case MockProviderConstants.TOKEN_RATE_LIMITED -> {
-                throw new PaymentProviderException(
-                        MockProviderConstants.MSG_RATE_LIMITED,
-                        ProviderFailureCode.RATE_LIMITED,
-                        true,
-                        MockProviderConstants.PROVIDER_NAME
-                );
-            }
-
-            case MockProviderConstants.TOKEN_SLOW_RESPONSE -> {
-                // Simulate very slow provider (5 seconds)
-                try {
-                    Thread.sleep(5000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                return ProviderChargeResponse.success(generateExternalTransactionId(), MockProviderConstants.PROVIDER_NAME);
-            }
-
-            case MockProviderConstants.TOKEN_PENDING -> {
-                return ProviderChargeResponse.pending(generateExternalTransactionId(), MockProviderConstants.PROVIDER_NAME);
-            }
-
-            default -> {
-                return null; // Not a test token, proceed with random behavior
-            }
+        Supplier<ProviderChargeResponse> handler = testTokenHandlers.get(token);
+        if (handler == null) {
+            return null;
         }
+        return handler.get();
+    }
+
+    private Map<String, Supplier<ProviderChargeResponse>> buildTestTokenHandlers(
+            Map<String, MockTestTokenOutcome> testTokenOutcomes) {
+        Map<String, Supplier<ProviderChargeResponse>> handlers = new HashMap<>(Map.ofEntries(
+                Map.entry(
+                        MockProviderConstants.TOKEN_VISA_SUCCESS,
+                        () -> ProviderChargeResponse.success(generateExternalTransactionId(), MockProviderConstants.PROVIDER_NAME)
+                ),
+                Map.entry(
+                        MockProviderConstants.TOKEN_CARD_DECLINED,
+                        () -> ProviderChargeResponse.failure(
+                                MockProviderConstants.PROVIDER_NAME,
+                                ProviderFailureCode.CARD_DECLINED,
+                                MockProviderConstants.MSG_CARD_DECLINED,
+                                false
+                        )
+                ),
+                Map.entry(
+                        MockProviderConstants.TOKEN_INSUFFICIENT_FUNDS,
+                        () -> ProviderChargeResponse.failure(
+                                MockProviderConstants.PROVIDER_NAME,
+                                ProviderFailureCode.INSUFFICIENT_FUNDS,
+                                MockProviderConstants.MSG_INSUFFICIENT_FUNDS,
+                                false
+                        )
+                ),
+                Map.entry(
+                        MockProviderConstants.TOKEN_EXPIRED_CARD,
+                        () -> ProviderChargeResponse.failure(
+                                MockProviderConstants.PROVIDER_NAME,
+                                ProviderFailureCode.EXPIRED_CARD,
+                                MockProviderConstants.MSG_CARD_EXPIRED,
+                                false
+                        )
+                ),
+                Map.entry(
+                        MockProviderConstants.TOKEN_FRAUD_SUSPECTED,
+                        () -> ProviderChargeResponse.failure(
+                                MockProviderConstants.PROVIDER_NAME,
+                                ProviderFailureCode.FRAUD_SUSPECTED,
+                                MockProviderConstants.MSG_FRAUD_SUSPECTED,
+                                false
+                        )
+                ),
+                Map.entry(
+                        MockProviderConstants.TOKEN_NETWORK_ERROR,
+                        () -> {
+                            throw new PaymentProviderException(
+                                    MockProviderConstants.MSG_NETWORK_TIMEOUT,
+                                    ProviderFailureCode.NETWORK_ERROR,
+                                    true,
+                                    MockProviderConstants.PROVIDER_NAME
+                            );
+                        }
+                ),
+                Map.entry(
+                        MockProviderConstants.TOKEN_PROVIDER_UNAVAILABLE,
+                        () -> {
+                            throw new PaymentProviderException(
+                                    MockProviderConstants.MSG_PROVIDER_UNAVAILABLE,
+                                    ProviderFailureCode.PROVIDER_UNAVAILABLE,
+                                    true,
+                                    MockProviderConstants.PROVIDER_NAME
+                            );
+                        }
+                ),
+                Map.entry(
+                        MockProviderConstants.TOKEN_RATE_LIMITED,
+                        () -> {
+                            throw new PaymentProviderException(
+                                    MockProviderConstants.MSG_RATE_LIMITED,
+                                    ProviderFailureCode.RATE_LIMITED,
+                                    true,
+                                    MockProviderConstants.PROVIDER_NAME
+                            );
+                        }
+                ),
+                Map.entry(MockProviderConstants.TOKEN_SLOW_RESPONSE, this::handleSlowResponse),
+                Map.entry(
+                        MockProviderConstants.TOKEN_PENDING,
+                        () -> ProviderChargeResponse.pending(generateExternalTransactionId(), MockProviderConstants.PROVIDER_NAME)
+                )
+        ));
+
+        if (testTokenOutcomes == null || testTokenOutcomes.isEmpty()) {
+            return handlers;
+        }
+
+        for (Map.Entry<String, MockTestTokenOutcome> entry : testTokenOutcomes.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) {
+                continue;
+            }
+            handlers.put(entry.getKey(), buildOutcomeHandler(entry.getValue()));
+        }
+
+        return handlers;
+    }
+
+    private Supplier<ProviderChargeResponse> buildOutcomeHandler(MockTestTokenOutcome outcome) {
+        return switch (outcome) {
+            case SUCCESS ->
+                    () -> ProviderChargeResponse.success(generateExternalTransactionId(), MockProviderConstants.PROVIDER_NAME);
+            case CARD_DECLINED ->
+                    () -> ProviderChargeResponse.failure(
+                            MockProviderConstants.PROVIDER_NAME,
+                            ProviderFailureCode.CARD_DECLINED,
+                            MockProviderConstants.MSG_CARD_DECLINED,
+                            false
+                    );
+            case INSUFFICIENT_FUNDS ->
+                    () -> ProviderChargeResponse.failure(
+                            MockProviderConstants.PROVIDER_NAME,
+                            ProviderFailureCode.INSUFFICIENT_FUNDS,
+                            MockProviderConstants.MSG_INSUFFICIENT_FUNDS,
+                            false
+                    );
+            case EXPIRED_CARD ->
+                    () -> ProviderChargeResponse.failure(
+                            MockProviderConstants.PROVIDER_NAME,
+                            ProviderFailureCode.EXPIRED_CARD,
+                            MockProviderConstants.MSG_CARD_EXPIRED,
+                            false
+                    );
+            case FRAUD_SUSPECTED ->
+                    () -> ProviderChargeResponse.failure(
+                            MockProviderConstants.PROVIDER_NAME,
+                            ProviderFailureCode.FRAUD_SUSPECTED,
+                            MockProviderConstants.MSG_FRAUD_SUSPECTED,
+                            false
+                    );
+            case NETWORK_ERROR ->
+                    () -> {
+                        throw new PaymentProviderException(
+                                MockProviderConstants.MSG_NETWORK_TIMEOUT,
+                                ProviderFailureCode.NETWORK_ERROR,
+                                true,
+                                MockProviderConstants.PROVIDER_NAME
+                        );
+                    };
+            case PROVIDER_UNAVAILABLE ->
+                    () -> {
+                        throw new PaymentProviderException(
+                                MockProviderConstants.MSG_PROVIDER_UNAVAILABLE,
+                                ProviderFailureCode.PROVIDER_UNAVAILABLE,
+                                true,
+                                MockProviderConstants.PROVIDER_NAME
+                        );
+                    };
+            case RATE_LIMITED ->
+                    () -> {
+                        throw new PaymentProviderException(
+                                MockProviderConstants.MSG_RATE_LIMITED,
+                                ProviderFailureCode.RATE_LIMITED,
+                                true,
+                                MockProviderConstants.PROVIDER_NAME
+                        );
+                    };
+            case SLOW_RESPONSE -> this::handleSlowResponse;
+            case PENDING ->
+                    () -> ProviderChargeResponse.pending(generateExternalTransactionId(), MockProviderConstants.PROVIDER_NAME);
+        };
+    }
+
+    private ProviderChargeResponse handleSlowResponse() {
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return ProviderChargeResponse.success(generateExternalTransactionId(), MockProviderConstants.PROVIDER_NAME);
     }
 
     /**

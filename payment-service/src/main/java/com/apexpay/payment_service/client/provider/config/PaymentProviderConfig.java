@@ -12,8 +12,10 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Configuration class for payment provider clients.
  * <p>
- * This class is responsible for creating and configuring payment provider client beans
- * based on application properties. It supports conditional bean creation for different
+ * This class is responsible for creating and configuring payment provider
+ * client beans
+ * based on application properties. It supports conditional bean creation for
+ * different
  * payment provider implementations (e.g., mock, Stripe).
  * </p>
  *
@@ -32,7 +34,8 @@ public class PaymentProviderConfig {
      * and latency to facilitate testing and development.
      * </p>
      *
-     * @param properties the payment provider properties containing mock configuration
+     * @param properties the payment provider properties containing mock
+     *                   configuration
      * @return a configured {@link PaymentProviderClient} implementation (mock)
      */
     @Bean
@@ -48,9 +51,8 @@ public class PaymentProviderConfig {
         MockConfig config = new MockConfig(
                 mockProperties.getSuccessRate(),
                 mockProperties.getMinLatencyMs(),
-                mockProperties.getMaxLatencyMs()
-        );
+                mockProperties.getMaxLatencyMs());
 
-        return new MockPaymentProviderClient(config);
+        return new MockPaymentProviderClient(config, mockProperties.getTestTokenOutcomes());
     }
 }

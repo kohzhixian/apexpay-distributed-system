@@ -1,9 +1,13 @@
 package com.apexpay.payment_service.client.provider.config;
 
+import com.apexpay.payment_service.client.provider.enums.MockTestTokenOutcome;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Configuration properties for payment provider clients.
@@ -22,6 +26,9 @@ import org.springframework.stereotype.Component;
  *       success-rate: 0.95
  *       min-latency-ms: 100
  *       max-latency-ms: 500
+ *       test-token-outcomes:
+ *         tok_success: SUCCESS
+ *         tok_decline: CARD_DECLINED
  *     stripe:
  *       api-key: sk_test_...
  *       webhook-secret: whsec_...
@@ -81,6 +88,12 @@ public class PaymentProviderProperties {
          * Defaults to {@code 500} ms.
          */
         private long maxLatencyMs = 500;
+
+        /**
+         * Deterministic outcomes for test tokens.
+         * Keys are token strings; values are {@link com.apexpay.payment_service.client.provider.enums.MockTestTokenOutcome}.
+         */
+        private Map<String, MockTestTokenOutcome> testTokenOutcomes = new HashMap<>();
     }
 
     /**

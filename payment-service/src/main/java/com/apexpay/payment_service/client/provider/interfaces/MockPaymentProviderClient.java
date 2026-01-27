@@ -4,6 +4,7 @@ import com.apexpay.payment_service.client.provider.constants.MockProviderConstan
 import com.apexpay.payment_service.client.provider.dto.MockConfig;
 import com.apexpay.payment_service.client.provider.dto.ProviderChargeRequest;
 import com.apexpay.payment_service.client.provider.dto.ProviderChargeResponse;
+import com.apexpay.payment_service.client.provider.enums.MockTestTokenOutcome;
 import com.apexpay.payment_service.client.provider.enums.ProviderFailureCode;
 import com.apexpay.payment_service.client.provider.helper.MockPaymentHelper;
 import org.slf4j.Logger;
@@ -53,6 +54,16 @@ public class MockPaymentProviderClient implements PaymentProviderClient {
      */
     public MockPaymentProviderClient(MockConfig mockConfig) {
         this(new MockPaymentHelper(mockConfig));
+    }
+
+    /**
+     * Creates a client with custom mock configuration and test token outcomes.
+     *
+     * @param mockConfig configuration for success rate, latency, etc.
+     * @param testTokenOutcomes mapping of token string to deterministic outcomes
+     */
+    public MockPaymentProviderClient(MockConfig mockConfig, Map<String, MockTestTokenOutcome> testTokenOutcomes) {
+        this(new MockPaymentHelper(mockConfig, testTokenOutcomes));
     }
 
     /**
