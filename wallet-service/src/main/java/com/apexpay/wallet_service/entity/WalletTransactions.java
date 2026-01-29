@@ -53,6 +53,7 @@ public class WalletTransactions {
     private String description;
 
     @Column(nullable = false, length = 25)
+    @Enumerated(EnumType.STRING)
     private WalletTransactionStatusEnum status;
 
     @CreationTimestamp

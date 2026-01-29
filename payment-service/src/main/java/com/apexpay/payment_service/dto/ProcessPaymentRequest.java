@@ -1,5 +1,8 @@
 package com.apexpay.payment_service.dto;
 
+import com.apexpay.common.constants.ValidationMessages;
+import jakarta.validation.constraints.NotBlank;
+
 /**
  * Request DTO for processing a payment.
  * <p>
@@ -9,5 +12,8 @@ package com.apexpay.payment_service.dto;
  *
  * @param paymentMethodToken the token representing the payment method to charge
  */
-public record ProcessPaymentRequest(String paymentMethodToken) {
+public record ProcessPaymentRequest(
+        @NotBlank(message = ValidationMessages.PAYMENT_METHOD_TOKEN_REQUIRED)
+        String paymentMethodToken
+) {
 }

@@ -15,7 +15,7 @@ import java.util.UUID;
  * Both wallets must belong to the specified users and cannot be the same wallet.
  * </p>
  *
- * @param receiverUserId  the user ID of the receiver
+ * @param receiverUserId   the user ID of the receiver
  * @param receiverWalletId the wallet ID to receive the funds
  * @param payerWalletId    the wallet ID to deduct funds from
  * @param amount           the amount to transfer (must be positive)
@@ -24,10 +24,10 @@ public record TransferRequest(
         @NotBlank(message = ValidationMessages.RECEIVER_USER_ID_REQUIRED)
         String receiverUserId,
 
-        @NotBlank(message = ValidationMessages.RECEIVER_WALLET_ID_REQUIRED)
+        @NotNull(message = ValidationMessages.RECEIVER_WALLET_ID_REQUIRED)
         UUID receiverWalletId,
 
-        @NotBlank(message = ValidationMessages.PAYER_WALLET_ID_REQUIRED)
+        @NotNull(message = ValidationMessages.PAYER_WALLET_ID_REQUIRED)
         UUID payerWalletId,
 
         @DecimalMin(value = ValidationMessages.DECIMAL_MIN_AMOUNT, inclusive = false, message = ValidationMessages.AMOUNT_MUST_BE_POSITIVE)

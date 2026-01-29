@@ -39,5 +39,10 @@ public record InitiatePaymentRequest(
         String clientRequestId,
 
         @NotBlank(message = ValidationMessages.PROVIDER_REQUIRED)
-        String provider) {
+        String provider,
+
+        @NotBlank(message = ValidationMessages.EXTERNAL_TRANSACTION_ID_REQUIRED)
+        String externalTransactionId
+
+) {
 }

@@ -59,7 +59,7 @@ public class PaymentService {
     private final PaymentProviderClient paymentProviderClient;
 
     public PaymentService(WalletClient walletClient, PaymentRepository paymentRepository,
-            PaymentProviderClient paymentProviderClient) {
+                          PaymentProviderClient paymentProviderClient) {
         this.walletClient = walletClient;
         this.paymentRepository = paymentRepository;
         this.paymentProviderClient = paymentProviderClient;
@@ -448,6 +448,7 @@ public class PaymentService {
                 .amount(request.amount())
                 .walletId(request.walletId())
                 .clientRequestId(request.clientRequestId())
+                .externalTransactionId(request.externalTransactionId())
                 .status(PaymentStatusEnum.INITIATED)
                 .currency(request.currency())
                 .provider(request.provider())
@@ -470,15 +471,15 @@ public class PaymentService {
      * </ul>
      * </p>
      *
-     * @param payment            the payment entity to update
-     * @param response           the charge response from provider (SUCCESS or PENDING)
+     * @param payment             the payment entity to update
+     * @param response            the charge response from provider (SUCCESS or PENDING)
      * @param walletTransactionId the wallet transaction ID created during fund reservation
      * @return the updated and persisted payment entity
      * @throws BusinessException if concurrent modification detected (version mismatch)
      */
     @Transactional
     private Payments updatePaymentToPendingWithExternalId(Payments payment, ProviderChargeResponse response,
-            UUID walletTransactionId) {
+                                                          UUID walletTransactionId) {
         Long currentVersion = payment.getVersion();
         int updated = paymentRepository.updatePaymentPending(
                 payment.getId(),
@@ -546,7 +547,7 @@ public class PaymentService {
      */
     @Transactional
     private Payments updatePaymentToFailure(Payments payment, ProviderFailureCode failureCode,
-            String failureMessage) {
+                                            String failureMessage) {
         Long currentVersion = payment.getVersion();
         String failureCodeStr = failureCode != null ? failureCode.name() : null;
 

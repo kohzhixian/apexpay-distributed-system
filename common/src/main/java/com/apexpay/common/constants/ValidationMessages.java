@@ -35,6 +35,7 @@ public final class ValidationMessages {
     public static final String REFERENCE_REQUIRED = "Reference is required.";
     public static final String EXTERNAL_TRANSACTION_ID_REQUIRED = "External transaction id is required.";
     public static final String EXTERNAL_PROVIDER_REQUIRED = "External Provider is required.";
+    public static final String PAYMENT_METHOD_TOKEN_REQUIRED = "Payment method token is required.",
 
     // Status validations
     public static final String EXPECTED_STATUS_REQUIRED = "Expected status is required.";
