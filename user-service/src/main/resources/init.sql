@@ -83,10 +83,10 @@ CREATE TABLE paymentservice.payments(
     wallet_transaction_id UUID, -- Links to wallet transaction created during fund reservation
     failure_code VARCHAR(50),
     failure_message VARCHAR(500),
-    external_transaction_id VARCHAR(100) NOT NULL,
+    payment_provider_id VARCHAR(100),
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_payments_external_transaction_id ON paymentservice.payments(external_transaction_id);
+CREATE INDEX idx_payments_payment_provider_id ON paymentservice.payments(payment_provider_id);
 

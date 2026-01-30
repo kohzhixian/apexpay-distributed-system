@@ -32,14 +32,14 @@ public interface PaymentProviderClient {
      * Retrieves the current status of a previously processed transaction.
      * <p>
      * Queries the provider for the current state of a transaction identified
-     * by the external transaction ID. Useful for checking pending transactions
+     * by the provider transaction ID. Useful for checking pending transactions
      * or reconciling payment states.
      * </p>
      *
-     * @param externalTransactionId the provider's transaction identifier
+     * @param providerTransactionId the provider's transaction identifier
      * @return response with current transaction status
      */
-    ProviderChargeResponse getTransactionStatus(String externalTransactionId);
+    ProviderChargeResponse getTransactionStatus(String providerTransactionId);
 
     /**
      * Returns the name of this payment provider.

@@ -97,8 +97,8 @@ public class MockPaymentHelper {
      * @param transactionStore the map to store the transaction in
      */
     public void storeTransaction(ProviderChargeResponse response, Map<String, ProviderChargeResponse> transactionStore) {
-        if (response.externalTransactionId() != null) {
-            transactionStore.put(response.externalTransactionId(), response);
+        if (response.providerTransactionId() != null) {
+            transactionStore.put(response.providerTransactionId(), response);
         }
     }
 

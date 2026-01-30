@@ -13,7 +13,7 @@ import java.time.Instant;
  * flag indicates whether the operation can be safely retried.
  * </p>
  *
- * @param externalTransactionId the provider's transaction identifier (null if failed before charge)
+ * @param providerTransactionId the provider's transaction identifier (null if failed before charge)
  * @param status                the transaction status (SUCCESS, PENDING, or FAILED)
  * @param providerName          the name of the payment provider
  * @param failureCode           the provider-specific failure code (null if successful)
@@ -22,7 +22,7 @@ import java.time.Instant;
  * @param processedAt           timestamp when the provider processed the request
  */
 public record ProviderChargeResponse(
-                String externalTransactionId,
+                String providerTransactionId,
                 ProviderTransactionStatus status,
                 String providerName,
                 ProviderFailureCode failureCode, // failure code like "card_declined", "insufficient funds"
@@ -36,14 +36,14 @@ public record ProviderChargeResponse(
          * Used when the payment provider successfully charged the payment method.
          * </p>
          *
-         * @param externalTransactionID the provider's transaction identifier
+         * @param providerTransactionId the provider's transaction identifier
          * @param providerName          the name of the payment provider
          * @return a successful ProviderChargeResponse
          */
         public static ProviderChargeResponse success(
-                        String externalTransactionID,
+                        String providerTransactionId,
                         String providerName) {
-                return new ProviderChargeResponse(externalTransactionID, ProviderTransactionStatus.SUCCESS,
+                return new ProviderChargeResponse(providerTransactionId, ProviderTransactionStatus.SUCCESS,
                                 providerName,
                                 null, null, false, Instant.now());
         }
@@ -52,7 +52,7 @@ public record ProviderChargeResponse(
          * Creates a failed charge response.
          * <p>
          * Used when the charge failed before reaching the provider (validation error)
-         * or when the provider declined the charge. The externalTransactionId is null
+         * or when the provider declined the charge. The providerTransactionId is null
          * because no transaction was created.
          * </p>
          *
@@ -78,14 +78,14 @@ public record ProviderChargeResponse(
          * the final status. The transaction ID is available for status queries.
          * </p>
          *
-         * @param externalTransactionID the provider's transaction identifier
+         * @param providerTransactionId the provider's transaction identifier
          * @param providerName          the name of the payment provider
          * @return a pending ProviderChargeResponse
          */
         public static ProviderChargeResponse pending(
-                        String externalTransactionID,
+                        String providerTransactionId,
                         String providerName) {
-                return new ProviderChargeResponse(externalTransactionID, ProviderTransactionStatus.PENDING,
+                return new ProviderChargeResponse(providerTransactionId, ProviderTransactionStatus.PENDING,
                                 providerName, null,
                                 null, false, Instant.now());
         }

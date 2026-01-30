@@ -13,16 +13,16 @@ import java.util.UUID;
  * the reserved funds from reserved balance to completed transaction.
  * </p>
  *
- * @param walletTransactionId  the wallet transaction ID of the reservation to confirm
- * @param externalTransactionId the provider's transaction identifier from the successful charge
- * @param externalProvider     the name of the payment provider (e.g., "STRIPE", "MOCK")
+ * @param walletTransactionId   the wallet transaction ID of the reservation to confirm
+ * @param providerTransactionId the provider's transaction identifier from the successful charge
+ * @param externalProvider      the name of the payment provider (e.g., "STRIPE", "MOCK")
  */
 public record ConfirmReservationRequest(
         @NotNull(message = ValidationMessages.RESERVATION_ID_REQUIRED)
         UUID walletTransactionId,
 
-        @NotNull(message = ValidationMessages.EXTERNAL_TRANSACTION_ID_REQUIRED)
-        String externalTransactionId,
+        @NotNull(message = ValidationMessages.PROVIDER_TRANSACTION_ID_REQUIRED)
+        String providerTransactionId,
 
         @NotNull(message = ValidationMessages.EXTERNAL_PROVIDER_REQUIRED)
         String externalProvider

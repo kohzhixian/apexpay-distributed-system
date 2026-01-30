@@ -134,12 +134,12 @@ public class MockPaymentProviderClient implements PaymentProviderClient {
      * <p>Looks up the transaction in the in-memory store. In a real provider,
      * this would call the provider's API to get current transaction status.
      * 
-     * @param externalTransactionId the provider's transaction ID
+     * @param providerTransactionId the provider's transaction ID
      * @return the transaction response, or TRANSACTION_NOT_FOUND failure if not found
      */
     @Override
-    public ProviderChargeResponse getTransactionStatus(String externalTransactionId) {
-        ProviderChargeResponse response = transactionStore.get(externalTransactionId);
+    public ProviderChargeResponse getTransactionStatus(String providerTransactionId) {
+        ProviderChargeResponse response = transactionStore.get(providerTransactionId);
 
         if (response != null) {
             return response;
@@ -149,7 +149,7 @@ public class MockPaymentProviderClient implements PaymentProviderClient {
         return ProviderChargeResponse.failure(
                 MockProviderConstants.PROVIDER_NAME,
                 ProviderFailureCode.TRANSACTION_NOT_FOUND,
-                String.format(MockProviderConstants.MSG_TRANSACTION_NOT_FOUND, externalTransactionId),
+                String.format(MockProviderConstants.MSG_TRANSACTION_NOT_FOUND, providerTransactionId),
                 false);
     }
 

@@ -59,7 +59,7 @@ public class PaymentService {
     private final PaymentProviderClient paymentProviderClient;
 
     public PaymentService(WalletClient walletClient, PaymentRepository paymentRepository,
-                          PaymentProviderClient paymentProviderClient) {
+            PaymentProviderClient paymentProviderClient) {
         this.walletClient = walletClient;
         this.paymentRepository = paymentRepository;
         this.paymentProviderClient = paymentProviderClient;
@@ -169,7 +169,7 @@ public class PaymentService {
             if (chargeResponse.isSuccessful()) {
                 try {
                     walletClient.confirmReservation(
-                            new ConfirmReservationRequest(walletTransactionId, chargeResponse.externalTransactionId(),
+                            new ConfirmReservationRequest(walletTransactionId, chargeResponse.providerTransactionId(),
                                     chargeResponse.providerName()),
                             userId, paymentRecord.getWalletId());
                     logger.info("Reservation confirmed for payment {}. WalletTransactionId: {}", paymentId,
@@ -177,13 +177,18 @@ public class PaymentService {
                 } catch (Exception e) {
                     /*
                      * CRITICAL: Eventual Consistency Logic
-                     * If the external charge succeeded but confirming the reservation fails (e.g., network error),
-                     * we MUST NOT throw an exception. Throwing an exception would roll back the payment status
-                     * to INITIATED/FAILED, telling the user their payment failed even though they were already
+                     * If the external charge succeeded but confirming the reservation fails (e.g.,
+                     * network error),
+                     * we MUST NOT throw an exception. Throwing an exception would roll back the
+                     * payment status
+                     * to INITIATED/FAILED, telling the user their payment failed even though they
+                     * were already
                      * charged externally.
                      *
-                     * Instead, we proceed to update the payment to SUCCESS. This ensures our system matches
-                     * the external reality (the user's bank account). The "stuck" reservation in the wallet
+                     * Instead, we proceed to update the payment to SUCCESS. This ensures our system
+                     * matches
+                     * the external reality (the user's bank account). The "stuck" reservation in
+                     * the wallet
                      * service is considered a "zombie" state that will be resolved by a background
                      * reconciliation process or manual intervention.
                      */
@@ -199,10 +204,12 @@ public class PaymentService {
 
             // Handle PENDING status - payment submitted but not yet confirmed
             if (chargeResponse.status() == ProviderTransactionStatus.PENDING) {
-                // Store external transaction ID and wallet transaction ID for later status polling
-                paymentRecord = updatePaymentToPendingWithExternalId(paymentRecord, chargeResponse, walletTransactionId);
-                logger.info("Payment {} is pending. ExternalTransactionId: {}, WalletTransactionId: {}",
-                        paymentRecord.getId(), chargeResponse.externalTransactionId(), walletTransactionId);
+                // Store external transaction ID and wallet transaction ID for later status
+                // polling
+                paymentRecord = updatePaymentToPendingWithExternalId(paymentRecord, chargeResponse,
+                        walletTransactionId);
+                logger.info("Payment {} is pending. ProviderTransactionId: {}, WalletTransactionId: {}",
+                        paymentRecord.getId(), chargeResponse.providerTransactionId(), walletTransactionId);
                 return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.PENDING,
                         ResponseMessages.PAYMENT_PENDING);
             }
@@ -255,16 +262,16 @@ public class PaymentService {
                     String.format("Payment is already in %s status.", payment.getStatus()));
         }
 
-        // Must have external transaction ID to query provider
-        if (payment.getExternalTransactionId() == null || payment.getExternalTransactionId().isBlank()) {
+        // Must have provider transaction ID to query provider
+        if (payment.getProviderTransactionId() == null || payment.getProviderTransactionId().isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT,
-                    "Payment does not have an external transaction ID for status checking.");
+                    "Payment does not have a provider transaction ID for status checking.");
         }
 
         try {
             // Query provider for current transaction status
             ProviderChargeResponse providerResponse = paymentProviderClient
-                    .getTransactionStatus(payment.getExternalTransactionId());
+                    .getTransactionStatus(payment.getProviderTransactionId());
 
             if (providerResponse.isSuccessful()) {
                 // Payment succeeded - confirm reservation and update status
@@ -272,10 +279,11 @@ public class PaymentService {
                 if (walletTxId != null) {
                     try {
                         walletClient.confirmReservation(
-                                new ConfirmReservationRequest(walletTxId, providerResponse.externalTransactionId(),
+                                new ConfirmReservationRequest(walletTxId, providerResponse.providerTransactionId(),
                                         providerResponse.providerName()),
                                 userId, payment.getWalletId());
-                        logger.info("Reservation confirmed for payment {}. WalletTransactionId: {}", paymentId, walletTxId);
+                        logger.info("Reservation confirmed for payment {}. WalletTransactionId: {}", paymentId,
+                                walletTxId);
                     } catch (Exception e) {
                         logger.error("Failed to confirm reservation for payment {}. WalletTransactionId: {}",
                                 paymentId, walletTxId, e);
@@ -283,7 +291,8 @@ public class PaymentService {
                         // The reservation can be confirmed later via reconciliation
                     }
                 } else {
-                    logger.warn("Payment {} succeeded but walletTransactionId is null. Reservation confirmation skipped.",
+                    logger.warn(
+                            "Payment {} succeeded but walletTransactionId is null. Reservation confirmation skipped.",
                             paymentId);
                 }
 
@@ -448,10 +457,8 @@ public class PaymentService {
                 .amount(request.amount())
                 .walletId(request.walletId())
                 .clientRequestId(request.clientRequestId())
-                .externalTransactionId(request.externalTransactionId())
                 .status(PaymentStatusEnum.INITIATED)
                 .currency(request.currency())
-                .provider(request.provider())
                 .userId(userUuid)
                 .build();
 
@@ -459,11 +466,14 @@ public class PaymentService {
     }
 
     /**
-     * Updates payment to PENDING status with external transaction ID and wallet transaction ID.
+     * Updates payment to PENDING status with provider transaction ID and wallet
+     * transaction ID.
      * Uses optimistic locking to prevent concurrent modification conflicts.
      * <p>
-     * Used after provider responds (SUCCESS or PENDING) to store the external transaction ID
-     * and wallet transaction ID. This ensures we have the necessary information for:
+     * Used after provider responds (SUCCESS or PENDING) to store the provider
+     * transaction ID
+     * and wallet transaction ID. This ensures we have the necessary information
+     * for:
      * <ul>
      * <li>Status polling (if PENDING)</li>
      * <li>Reconciliation (if SUCCESS)</li>
@@ -472,18 +482,21 @@ public class PaymentService {
      * </p>
      *
      * @param payment             the payment entity to update
-     * @param response            the charge response from provider (SUCCESS or PENDING)
-     * @param walletTransactionId the wallet transaction ID created during fund reservation
+     * @param response            the charge response from provider (SUCCESS or
+     *                            PENDING)
+     * @param walletTransactionId the wallet transaction ID created during fund
+     *                            reservation
      * @return the updated and persisted payment entity
-     * @throws BusinessException if concurrent modification detected (version mismatch)
+     * @throws BusinessException if concurrent modification detected (version
+     *                           mismatch)
      */
     @Transactional
     private Payments updatePaymentToPendingWithExternalId(Payments payment, ProviderChargeResponse response,
-                                                          UUID walletTransactionId) {
+            UUID walletTransactionId) {
         Long currentVersion = payment.getVersion();
         int updated = paymentRepository.updatePaymentPending(
                 payment.getId(),
-                response.externalTransactionId(),
+                response.providerTransactionId(),
                 response.providerName(),
                 walletTransactionId,
                 currentVersion);
@@ -504,7 +517,7 @@ public class PaymentService {
     /**
      * Updates payment to SUCCESS status with provider transaction details.
      * Uses optimistic locking to prevent concurrent modification conflicts.
-     * Stores externalTransactionId for reconciliation and refund operations.
+     * Stores providerTransactionId for reconciliation and refund operations.
      *
      * @param payment  the payment entity to update
      * @param response the successful charge response from provider
@@ -517,7 +530,7 @@ public class PaymentService {
         Long currentVersion = payment.getVersion();
         int updated = paymentRepository.updatePaymentSuccess(
                 payment.getId(),
-                response.externalTransactionId(),
+                response.providerTransactionId(),
                 currentVersion);
 
         if (updated == 0) {
@@ -547,7 +560,7 @@ public class PaymentService {
      */
     @Transactional
     private Payments updatePaymentToFailure(Payments payment, ProviderFailureCode failureCode,
-                                            String failureMessage) {
+            String failureMessage) {
         Long currentVersion = payment.getVersion();
         String failureCodeStr = failureCode != null ? failureCode.name() : null;
 

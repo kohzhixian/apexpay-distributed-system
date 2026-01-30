@@ -33,39 +33,39 @@ public interface PaymentRepository extends JpaRepository<Payments, UUID> {
     /**
      * Updates payment to SUCCESS status with optimistic locking.
      * <p>
-     * Atomically updates payment status, external transaction ID, and version
+     * Atomically updates payment status, provider transaction ID, and version
      * only if the version matches (prevents concurrent modification conflicts).
      * Returns the number of rows updated (0 if version mismatch).
      * </p>
      *
      * @param paymentId the payment ID to update
-     * @param externalTransactionId the provider's transaction identifier
+     * @param providerTransactionId the provider's transaction identifier
      * @param version the expected current version (for optimistic locking)
      * @return number of rows updated (1 if successful, 0 if version mismatch)
      */
     @Modifying
-    @Query("UPDATE Payments p SET p.status = 'SUCCESS', p.externalTransactionId = :externalTransactionId, p.version = p.version + 1 WHERE p.id = :paymentId AND p.version = :version")
-    int updatePaymentSuccess(@Param("paymentId") UUID paymentId, @Param("externalTransactionId") String externalTransactionId, @Param("version") Long version);
+    @Query("UPDATE Payments p SET p.status = 'SUCCESS', p.providerTransactionId = :providerTransactionId, p.version = p.version + 1 WHERE p.id = :paymentId AND p.version = :version")
+    int updatePaymentSuccess(@Param("paymentId") UUID paymentId, @Param("providerTransactionId") String providerTransactionId, @Param("version") Long version);
 
     /**
-     * Updates payment to PENDING status with external transaction ID and wallet transaction ID.
+     * Updates payment to PENDING status with provider transaction ID and wallet transaction ID.
      * Uses optimistic locking to prevent concurrent modification conflicts.
      * <p>
-     * Atomically updates payment status, external transaction ID, provider name, wallet transaction ID,
+     * Atomically updates payment status, provider transaction ID, provider name, wallet transaction ID,
      * and version only if the version matches (prevents concurrent modification conflicts).
      * Returns the number of rows updated (0 if version mismatch).
      * </p>
      *
      * @param paymentId the payment ID to update
-     * @param externalTransactionId the provider's transaction identifier
+     * @param providerTransactionId the provider's transaction identifier
      * @param providerName the name of the payment provider
      * @param walletTransactionId the wallet transaction ID created during fund reservation
      * @param version the expected current version (for optimistic locking)
      * @return number of rows updated (1 if successful, 0 if version mismatch)
      */
     @Modifying
-    @Query("UPDATE Payments p SET p.status = 'PENDING', p.externalTransactionId = :externalTransactionId, p.provider = :providerName, p.walletTransactionId = :walletTransactionId, p.version = p.version + 1 WHERE p.id = :paymentId AND p.version = :version")
-    int updatePaymentPending(@Param("paymentId") UUID paymentId, @Param("externalTransactionId") String externalTransactionId,
+    @Query("UPDATE Payments p SET p.status = 'PENDING', p.providerTransactionId = :providerTransactionId, p.provider = :providerName, p.walletTransactionId = :walletTransactionId, p.version = p.version + 1 WHERE p.id = :paymentId AND p.version = :version")
+    int updatePaymentPending(@Param("paymentId") UUID paymentId, @Param("providerTransactionId") String providerTransactionId,
                             @Param("providerName") String providerName, @Param("walletTransactionId") UUID walletTransactionId,
                             @Param("version") Long version);
 

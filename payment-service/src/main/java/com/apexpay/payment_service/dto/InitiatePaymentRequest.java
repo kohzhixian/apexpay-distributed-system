@@ -22,7 +22,6 @@ import java.util.UUID;
  * @param walletId        the wallet ID to charge for the payment
  * @param currency        the currency of the payment
  * @param clientRequestId a unique identifier provided by the client for idempotency
- * @param provider        the payment provider name (e.g., "STRIPE", "MOCK")
  */
 public record InitiatePaymentRequest(
         @NotNull(message = ValidationMessages.AMOUNT_REQUIRED)
@@ -36,13 +35,7 @@ public record InitiatePaymentRequest(
         CurrencyEnum currency,
 
         @NotBlank(message = ValidationMessages.CLIENT_REQUEST_ID_REQUIRED)
-        String clientRequestId,
-
-        @NotBlank(message = ValidationMessages.PROVIDER_REQUIRED)
-        String provider,
-
-        @NotBlank(message = ValidationMessages.EXTERNAL_TRANSACTION_ID_REQUIRED)
-        String externalTransactionId
+        String clientRequestId
 
 ) {
 }

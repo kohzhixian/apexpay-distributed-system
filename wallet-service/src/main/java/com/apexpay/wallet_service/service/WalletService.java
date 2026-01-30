@@ -304,7 +304,7 @@ public class WalletService {
      * </p>
      *
      * @param request  the confirmation request containing walletTransactionId,
-     *                 externalTransactionId, and provider name
+     *                 providerTransactionId, and provider name
      * @param userId   the authenticated user's ID
      * @param walletId the wallet ID containing the reservation
      * @return success message (or "already completed" if idempotent call)

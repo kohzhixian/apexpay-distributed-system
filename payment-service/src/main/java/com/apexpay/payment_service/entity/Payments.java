@@ -33,7 +33,7 @@ import java.util.UUID;
                         name = "uk_payment_client_request_user")
         },
         indexes = {
-                @Index(name = "idx_payments_external_transaction_id", columnList = "external_transaction_id")
+                @Index(name = "idx_payments_provider_transaction_id", columnList = "provider_transaction_id")
         })
 public class Payments {
     @Id
@@ -72,8 +72,8 @@ public class Payments {
     @Column(name = "wallet_transaction_id")
     private UUID walletTransactionId;
 
-    @Column(name = "external_transaction_id")
-    private String externalTransactionId;
+    @Column(name = "provider_transaction_id")
+    private String providerTransactionId;
 
     @Column(length = 50)
     @Enumerated(EnumType.STRING)
