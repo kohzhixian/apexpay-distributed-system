@@ -121,4 +121,26 @@ public class WalletHelper {
 
         return false;
     }
+
+    /**
+     * Validates that a wallet transaction belongs to the specified wallet and user.
+     * Prevents information disclosure by ensuring callers cannot access other users' data.
+     *
+     * @param transaction the wallet transaction to validate
+     * @param walletId    the expected wallet ID
+     * @param userId      the authenticated user's ID
+     * @throws BusinessException if wallet ID mismatch or user doesn't own the wallet
+     */
+    public void validateTransactionBelongsToWallet(WalletTransactions transaction, UUID walletId, String userId) {
+        Wallets wallet = transaction.getWallet();
+
+        if (!wallet.getId().equals(walletId)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, ErrorMessages.WALLET_TRANSACTION_MISMATCH);
+        }
+
+        UUID userUuid = parseUserId(userId);
+        if (!wallet.getUserId().equals(userUuid)) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED, ErrorMessages.WALLET_ACCESS_DENIED);
+        }
+    }
 }

@@ -264,9 +264,10 @@ public class WalletService {
 
         if (existingTx.isPresent()) {
             WalletTransactions tx = existingTx.get();
+            walletHelper.validateTransactionBelongsToWallet(tx, walletId, userId);
+
             logger.info("Duplicate reservation request detected. Returning existing transaction: {}", tx.getId());
             Wallets wallet = tx.getWallet();
-            // Calculate remaining balance based on current wallet state
             BigDecimal remainingBalance = wallet.getBalance().subtract(wallet.getReservedBalance());
             return new ReserveFundsResponse(tx.getId(), wallet.getId(), tx.getAmount(), remainingBalance);
         }
@@ -313,11 +314,7 @@ public class WalletService {
     public String confirmReservation(ConfirmReservationRequest request, String userId, UUID walletId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, walletId);
         WalletTransactions transaction = walletHelper.getWalletTransactionById(request.walletTransactionId());
-
-        // check if wallet transaction belongs to wallet
-        if (!transaction.getWallet().getId().equals(walletId)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, ErrorMessages.WALLET_TRANSACTION_MISMATCH);
-        }
+        walletHelper.validateTransactionBelongsToWallet(transaction, walletId, userId);
 
         // idempotency check
         if (walletHelper.isTransactionAlreadyInStatus(transaction, WalletTransactionStatusEnum.COMPLETED)) {
@@ -360,11 +357,7 @@ public class WalletService {
     public String cancelReservation(CancelReservationRequest request, String userId, UUID walletId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, walletId);
         WalletTransactions transaction = walletHelper.getWalletTransactionById(request.walletTransactionId());
-
-        // check if wallet transaction belongs to wallet
-        if (!transaction.getWallet().getId().equals(walletId)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT, ErrorMessages.WALLET_TRANSACTION_MISMATCH);
-        }
+        walletHelper.validateTransactionBelongsToWallet(transaction, walletId, userId);
 
         // idempotency check
         if (walletHelper.isTransactionAlreadyInStatus(transaction, WalletTransactionStatusEnum.CANCELLED)) {

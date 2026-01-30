@@ -23,6 +23,7 @@ public final class ErrorMessages {
 
     // Wallet errors
     public static final String WALLET_NOT_FOUND = "Wallet not found.";
+    public static final String WALLET_ACCESS_DENIED = "Wallet does not belong to user.";
     public static final String INSUFFICIENT_BALANCE = "Insufficient balance.";
     public static final String CANNOT_TRANSFER_SAME_WALLET = "Cannot transfer to the same wallet.";
     public static final String USER_ID_REQUIRED = "User id is required.";
