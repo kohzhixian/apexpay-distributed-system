@@ -517,7 +517,7 @@ public class PaymentService {
     /**
      * Updates payment to SUCCESS status with provider transaction details.
      * Uses optimistic locking to prevent concurrent modification conflicts.
-     * Stores providerTransactionId for reconciliation and refund operations.
+     * Stores providerTransactionId and providerName for reconciliation and refund operations.
      *
      * @param payment  the payment entity to update
      * @param response the successful charge response from provider
@@ -531,6 +531,7 @@ public class PaymentService {
         int updated = paymentRepository.updatePaymentSuccess(
                 payment.getId(),
                 response.providerTransactionId(),
+                response.providerName(),
                 currentVersion);
 
         if (updated == 0) {
