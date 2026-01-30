@@ -268,7 +268,7 @@ public class WalletService {
 
             logger.info("Duplicate reservation request detected. Returning existing transaction: {}", tx.getId());
             Wallets wallet = tx.getWallet();
-            BigDecimal remainingBalance = wallet.getBalance().subtract(wallet.getReservedBalance());
+            BigDecimal remainingBalance = walletHelper.calculateAvailableBalance(wallet);
             return new ReserveFundsResponse(tx.getId(), wallet.getId(), tx.getAmount(), remainingBalance);
         }
 
@@ -290,7 +290,9 @@ public class WalletService {
         logger.info("Funds reserved. WalletId: {}, Amount: {}, TransactionId: {}",
                 existingWallet.getId(), request.amount(), newWalletTransaction.getId());
 
-        BigDecimal remainingBalance = existingWallet.getBalance().subtract(request.amount());
+        // Calculate remaining balance: available balance - newly reserved amount
+        BigDecimal remainingBalance = walletHelper.calculateAvailableBalance(existingWallet)
+                .subtract(request.amount());
 
         return new ReserveFundsResponse(newWalletTransaction.getId(), walletId, request.amount(), remainingBalance);
     }

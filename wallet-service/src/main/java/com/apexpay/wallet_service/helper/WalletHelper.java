@@ -62,9 +62,20 @@ public class WalletHelper {
         walletTransactionRepository.save(newWalletTransaction);
     }
 
+    /**
+     * Calculates the available balance for a wallet.
+     * Available balance = total balance - reserved balance
+     *
+     * @param wallet the wallet to calculate available balance for
+     * @return the available balance that can be used for new transactions
+     */
+    public BigDecimal calculateAvailableBalance(Wallets wallet) {
+        return wallet.getBalance().subtract(wallet.getReservedBalance());
+    }
+
     public void validateSufficientBalance(Wallets wallet, BigDecimal amount) {
-        BigDecimal balance = wallet.getBalance().subtract(wallet.getReservedBalance());
-        if (balance.compareTo(amount) < 0) {
+        BigDecimal availableBalance = calculateAvailableBalance(wallet);
+        if (availableBalance.compareTo(amount) < 0) {
             throw new BusinessException(ErrorCode.INSUFFICIENT_BALANCE, ErrorMessages.INSUFFICIENT_BALANCE);
         }
     }

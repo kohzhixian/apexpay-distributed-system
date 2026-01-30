@@ -253,6 +253,7 @@ public class PaymentService {
      * @throws BusinessException if payment not found, unauthorized, or not in
      *                           PENDING status
      */
+    @Transactional
     public PaymentResponse checkPaymentStatus(UUID paymentId, String userId) {
         UUID userUuid = UUID.fromString(userId);
         Payments payment = paymentRepository.findById(paymentId)

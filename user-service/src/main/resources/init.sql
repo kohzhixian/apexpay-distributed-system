@@ -88,5 +88,5 @@ CREATE TABLE paymentservice.payments(
     updated_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_payments_payment_provider_id ON paymentservice.payments(payment_provider_id);
+CREATE INDEX idx_payments_provider_transaction_id ON paymentservice.payments(provider_transaction_id);
 

@@ -6,6 +6,8 @@ import com.apexpay.payment_service.client.provider.dto.ProviderChargeResponse;
 import com.apexpay.payment_service.client.provider.enums.MockTestTokenOutcome;
 import com.apexpay.payment_service.client.provider.enums.ProviderFailureCode;
 import com.apexpay.payment_service.client.provider.exception.PaymentProviderException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +25,8 @@ import java.util.function.Supplier;
  * </p>
  */
 public class MockPaymentHelper {
+    private static final Logger logger = LoggerFactory.getLogger(MockPaymentHelper.class);
+
     private final MockConfig mockConfig;
     private final Random random = new Random();
     private final Map<String, Supplier<ProviderChargeResponse>> testTokenHandlers;
@@ -51,6 +55,13 @@ public class MockPaymentHelper {
 
         // Only simulate latency if configured
         if (minLatencyMs > 0 || maxLatencyMs > 0) {
+            // Handle misconfigured min/max values gracefully
+            if (minLatencyMs > maxLatencyMs) {
+                logger.warn("Invalid latency config: minLatencyMs ({}) > maxLatencyMs ({}). Using minLatencyMs as fixed latency.",
+                        minLatencyMs, maxLatencyMs);
+                maxLatencyMs = minLatencyMs;
+            }
+
             try {
                 long latency;
                 if (minLatencyMs == maxLatencyMs) {
