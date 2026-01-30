@@ -160,6 +160,15 @@ public class MockPaymentHelper {
                         )
                 ),
                 Map.entry(
+                        MockProviderConstants.TOKEN_INVALID_CARD,
+                        () -> ProviderChargeResponse.failure(
+                                MockProviderConstants.PROVIDER_NAME,
+                                ProviderFailureCode.INVALID_CARD,
+                                MockProviderConstants.MSG_INVALID_CARD,
+                                false
+                        )
+                ),
+                Map.entry(
                         MockProviderConstants.TOKEN_FRAUD_SUSPECTED,
                         () -> ProviderChargeResponse.failure(
                                 MockProviderConstants.PROVIDER_NAME,
@@ -245,6 +254,13 @@ public class MockPaymentHelper {
                             MockProviderConstants.PROVIDER_NAME,
                             ProviderFailureCode.EXPIRED_CARD,
                             MockProviderConstants.MSG_CARD_EXPIRED,
+                            false
+                    );
+            case INVALID_CARD ->
+                    () -> ProviderChargeResponse.failure(
+                            MockProviderConstants.PROVIDER_NAME,
+                            ProviderFailureCode.INVALID_CARD,
+                            MockProviderConstants.MSG_INVALID_CARD,
                             false
                     );
             case FRAUD_SUSPECTED ->

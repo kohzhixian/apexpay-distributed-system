@@ -15,6 +15,7 @@ public final class MockProviderConstants {
     public static final String TOKEN_CARD_DECLINED = "tok_card_declined";
     public static final String TOKEN_INSUFFICIENT_FUNDS = "tok_insufficient_funds";
     public static final String TOKEN_EXPIRED_CARD = "tok_expired_card";
+    public static final String TOKEN_INVALID_CARD = "tok_invalid_card";
     public static final String TOKEN_FRAUD_SUSPECTED = "tok_fraud_suspected";
     public static final String TOKEN_NETWORK_ERROR = "tok_network_error";
     public static final String TOKEN_PROVIDER_UNAVAILABLE = "tok_provider_unavailable";
@@ -28,6 +29,7 @@ public final class MockProviderConstants {
     public static final String MSG_INSUFFICIENT_FUNDS = "Insufficient funds on card";
     public static final String MSG_INSUFFICIENT_FUNDS_SHORT = "Insufficient funds";
     public static final String MSG_CARD_EXPIRED = "Card has expired";
+    public static final String MSG_INVALID_CARD = "Card number is invalid";
     public static final String MSG_FRAUD_SUSPECTED = "Transaction flagged for potential fraud";
     public static final String MSG_NETWORK_TIMEOUT = "Network timeout connecting to payment processor";
     public static final String MSG_NETWORK_TIMEOUT_SHORT = "Network timeout";
