@@ -2,7 +2,9 @@ package com.apexpay.payment_service.repository;
 
 import com.apexpay.payment_service.client.provider.enums.ProviderFailureCode;
 import com.apexpay.payment_service.entity.Payments;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,6 +32,25 @@ public interface PaymentRepository extends JpaRepository<Payments, UUID> {
      * @return optional payment if found, empty otherwise
      */
     Optional<Payments> findByClientRequestIdAndUserId(String clientRequestId, UUID userId);
+
+    /**
+     * Finds a payment by ID with a pessimistic write lock (SELECT FOR UPDATE).
+     * <p>
+     * Acquires a row-level database lock to prevent concurrent modifications.
+     * Must be called within a transaction. Other transactions attempting to
+     * read the same row with a lock will block until this transaction completes.
+     * </p>
+     * <p>
+     * This method is used when processing payments to prevent race conditions where
+     * two concurrent requests could both charge the payment provider.
+     * </p>
+     *
+     * @param id the payment ID to find and lock
+     * @return optional payment if found, empty otherwise
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Payments p WHERE p.id = :id")
+    Optional<Payments> findByIdWithLock(@Param("id") UUID id);
 
     /**
      * Updates payment to SUCCESS status with optimistic locking.

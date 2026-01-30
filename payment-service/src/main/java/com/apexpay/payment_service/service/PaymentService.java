@@ -123,6 +123,7 @@ public class PaymentService {
      * <p>
      * Flow:
      * <ol>
+     * <li>Acquire pessimistic lock on payment record</li>
      * <li>Validate payment exists and belongs to user</li>
      * <li>Validate payment is in INITIATED status</li>
      * <li>Reserve funds in user's wallet</li>
@@ -132,6 +133,12 @@ public class PaymentService {
      * <li>On failure: cancel reservation, update to FAILED</li>
      * </ol>
      *
+     * <p>
+     * Uses pessimistic locking (SELECT FOR UPDATE) to prevent race conditions
+     * where concurrent requests could both charge the payment provider, resulting
+     * in double-charging the user.
+     * </p>
+     *
      * @param paymentId          the ID of the initiated payment
      * @param userId             the authenticated user's ID
      * @param paymentMethodToken token representing the payment method (card, etc.)
@@ -139,10 +146,11 @@ public class PaymentService {
      * @throws BusinessException if payment not found, unauthorized, invalid state,
      *                           or charge fails
      */
+    @Transactional
     public PaymentResponse processPayment(UUID paymentId, String userId, String paymentMethodToken) {
         UUID userUuid = UUID.fromString(userId);
-        // find existing payment with payment id
-        Payments paymentRecord = paymentRepository.findById(paymentId)
+        // find existing payment with pessimistic lock to prevent concurrent double-charging
+        Payments paymentRecord = paymentRepository.findByIdWithLock(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, ErrorMessages.PAYMENT_NOT_FOUND));
 
         // check if payment record belongs to user
