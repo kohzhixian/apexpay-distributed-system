@@ -59,7 +59,7 @@ public class PaymentService {
     private final PaymentProviderClient paymentProviderClient;
 
     public PaymentService(WalletClient walletClient, PaymentRepository paymentRepository,
-            PaymentProviderClient paymentProviderClient) {
+                          PaymentProviderClient paymentProviderClient) {
         this.walletClient = walletClient;
         this.paymentRepository = paymentRepository;
         this.paymentProviderClient = paymentProviderClient;
@@ -492,7 +492,7 @@ public class PaymentService {
      */
     @Transactional
     private Payments updatePaymentToPendingWithExternalId(Payments payment, ProviderChargeResponse response,
-            UUID walletTransactionId) {
+                                                          UUID walletTransactionId) {
         Long currentVersion = payment.getVersion();
         int updated = paymentRepository.updatePaymentPending(
                 payment.getId(),
@@ -560,13 +560,11 @@ public class PaymentService {
      */
     @Transactional
     private Payments updatePaymentToFailure(Payments payment, ProviderFailureCode failureCode,
-            String failureMessage) {
+                                            String failureMessage) {
         Long currentVersion = payment.getVersion();
-        String failureCodeStr = failureCode != null ? failureCode.name() : null;
-
         int updated = paymentRepository.updatePaymentFailed(
                 payment.getId(),
-                failureCodeStr,
+                failureCode,
                 failureMessage,
                 currentVersion);
 
