@@ -83,7 +83,7 @@ CREATE TABLE paymentservice.payments(
     wallet_transaction_id UUID, -- Links to wallet transaction created during fund reservation
     failure_code VARCHAR(50),
     failure_message VARCHAR(500),
-    payment_provider_id VARCHAR(100),
+    provider_transaction_id VARCHAR(100),
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
