@@ -109,10 +109,10 @@ public class WalletController {
      * </p>
      */
     @PostMapping("/{walletId}/confirm")
-    public ResponseEntity<String> confirmReservation(@Valid @RequestBody ConfirmReservationRequest request,
-                                                     @PathVariable("walletId") UUID walletId,
-                                                     @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
-        String response = walletService.confirmReservation(request, userId, walletId);
+    public ResponseEntity<ConfirmReservationResponse> confirmReservation(@Valid @RequestBody ConfirmReservationRequest request,
+                                                                         @PathVariable("walletId") UUID walletId,
+                                                                         @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        ConfirmReservationResponse response = walletService.confirmReservation(request, userId, walletId);
         return ResponseEntity.ok(response);
 
     }
@@ -125,10 +125,10 @@ public class WalletController {
      * </p>
      */
     @PostMapping("/{walletId}/cancel")
-    public ResponseEntity<String> cancelReservation(@Valid @RequestBody CancelReservationRequest request,
-                                                    @PathVariable("walletId") UUID walletId,
-                                                    @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
-        String response = walletService.cancelReservation(request, userId, walletId);
+    public ResponseEntity<CancelReservationResponse> cancelReservation(@Valid @RequestBody CancelReservationRequest request,
+                                                                       @PathVariable("walletId") UUID walletId,
+                                                                       @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        CancelReservationResponse response = walletService.cancelReservation(request, userId, walletId);
         return ResponseEntity.ok(response);
     }
 

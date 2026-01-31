@@ -314,7 +314,7 @@ public class WalletService {
      * @return success message (or "already completed" if idempotent call)
      */
     @Transactional
-    public String confirmReservation(ConfirmReservationRequest request, String userId, UUID walletId) {
+    public ConfirmReservationResponse confirmReservation(ConfirmReservationRequest request, String userId, UUID walletId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, walletId);
         WalletTransactions transaction = walletHelper.getWalletTransactionById(request.walletTransactionId());
         walletHelper.validateTransactionBelongsToWallet(transaction, walletId, userId);
@@ -322,7 +322,7 @@ public class WalletService {
         // idempotency check
         if (walletHelper.isTransactionAlreadyInStatus(transaction, WalletTransactionStatusEnum.COMPLETED)) {
             logger.info("Transaction already completed. TransactionId: {}", transaction.getId());
-            return ResponseMessages.RESERVATION_ALREADY_COMPLETED;
+            return new ConfirmReservationResponse(ResponseMessages.RESERVATION_ALREADY_COMPLETED);
         }
 
         // deduct from balance (use transaction amount)
@@ -339,7 +339,7 @@ public class WalletService {
         logger.info("Funds reservation completed. WalletId: {}, TransactionId: {}",
                 walletId, transaction.getId());
 
-        return ResponseMessages.RESERVATION_COMPLETED;
+        return new ConfirmReservationResponse(ResponseMessages.RESERVATION_COMPLETED);
     }
 
     /**
@@ -357,7 +357,7 @@ public class WalletService {
      * @return success message (or "already cancelled" if idempotent call)
      */
     @Transactional
-    public String cancelReservation(CancelReservationRequest request, String userId, UUID walletId) {
+    public CancelReservationResponse cancelReservation(CancelReservationRequest request, String userId, UUID walletId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, walletId);
         WalletTransactions transaction = walletHelper.getWalletTransactionById(request.walletTransactionId());
         walletHelper.validateTransactionBelongsToWallet(transaction, walletId, userId);
@@ -365,7 +365,7 @@ public class WalletService {
         // idempotency check
         if (walletHelper.isTransactionAlreadyInStatus(transaction, WalletTransactionStatusEnum.CANCELLED)) {
             logger.info("Transaction already cancelled. TransactionId: {}", transaction.getId());
-            return ResponseMessages.RESERVATION_ALREADY_CANCELLED;
+            return new CancelReservationResponse(ResponseMessages.RESERVATION_ALREADY_CANCELLED);
         }
 
         // remove from reserved funds
@@ -379,7 +379,7 @@ public class WalletService {
         logger.info("Funds reservation cancelled. WalletId: {}, TransactionId: {}",
                 walletId, transaction.getId());
 
-        return ResponseMessages.RESERVATION_CANCELLED;
+        return new CancelReservationResponse(ResponseMessages.RESERVATION_CANCELLED);
     }
 
     /**
