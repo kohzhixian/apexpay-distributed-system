@@ -15,6 +15,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.stream.Collectors;
 
+/**
+ * Global exception handler for the User Service.
+ * <p>
+ * Catches and transforms exceptions into standardized {@link ErrorResponse} objects.
+ * Handles business exceptions, validation errors, and security exceptions.
+ * Returns generic messages for authentication failures to prevent user enumeration.
+ * </p>
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {

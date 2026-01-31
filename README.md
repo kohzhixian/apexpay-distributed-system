@@ -309,11 +309,11 @@ All wallet endpoints are prefixed with `/api/v1/wallet/` and require authenticat
 
 Payment endpoints are prefixed with `/api/v1/payment/` and require authentication.
 
-| Method | Endpoint                       | Description                           |
-| ------ | ------------------------------ | ------------------------------------- |
-| POST   | `/api/v1/payment/initiate`     | Initiate payment with idempotency key |
-| GET    | `/api/v1/payment/{id}`         | Get payment status                    |
-| POST   | `/api/v1/payment/{id}/confirm` | Confirm payment (if applicable)       |
+| Method | Endpoint                        | Description                                  |
+| ------ | ------------------------------- | -------------------------------------------- |
+| POST   | `/api/v1/payment`               | Initiate payment with idempotency key        |
+| POST   | `/api/v1/payment/{id}/process`  | Process payment (reserve, charge, confirm)   |
+| GET    | `/api/v1/payment/{id}/status`   | Check/poll payment status                    |
 
 <!-- Add example requests/responses for key endpoints -->
 

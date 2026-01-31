@@ -63,19 +63,20 @@ public class WalletService {
     /**
      * Creates a new wallet for the specified user with initial balance.
      * <p>
-     * Initializes a wallet with the provided balance and currency. The reserved
+     * Initializes a wallet with the provided name, balance, and currency. The reserved
      * balance is set to zero. The wallet is associated with the authenticated user.
      * </p>
      *
-     * @param request the wallet creation request containing balance and currency
+     * @param request the wallet creation request containing name, balance, and currency
      * @param userId  the authenticated user's ID
-     * @return response confirming wallet creation
+     * @return response confirming wallet creation with wallet ID and name
      */
     @Transactional
     public CreateWalletResponse createWallet(CreateWalletRequest request, String userId) {
         UUID userUuid = walletHelper.parseUserId(userId);
         BigDecimal defaultReservedBalance = new BigDecimal("0.00");
         Wallets newWallet = Wallets.builder()
+                .name(request.name().trim())
                 .balance(request.balance())
                 .userId(userUuid)
                 .reservedBalance(defaultReservedBalance)
@@ -83,8 +84,8 @@ public class WalletService {
                 .build();
 
         walletRepository.save(newWallet);
-        logger.info("Wallet created. WalletId: {}, UserId: {}", newWallet.getId(), userUuid);
-        return new CreateWalletResponse(ResponseMessages.WALLET_CREATED);
+        logger.info("Wallet created. WalletId: {}, Name: {}, UserId: {}", newWallet.getId(), newWallet.getName(), userUuid);
+        return new CreateWalletResponse(ResponseMessages.WALLET_CREATED, newWallet.getId(), newWallet.getName());
     }
 
     /**
@@ -101,7 +102,7 @@ public class WalletService {
      */
     @Transactional
     @Retryable(retryFor = {
-            ObjectOptimisticLockingFailureException.class }, backoff = @Backoff(delay = 100))
+            ObjectOptimisticLockingFailureException.class}, backoff = @Backoff(delay = 100))
     public TopUpWalletResponse topUpWallet(TopUpWalletRequest request, String userId) {
         Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, request.walletId());
 
@@ -121,7 +122,7 @@ public class WalletService {
      */
     @Recover
     public TopUpWalletResponse recoverTopUp(ObjectOptimisticLockingFailureException ex, TopUpWalletRequest request,
-            String userId) {
+                                            String userId) {
         logger.error("Topup failed after retries. UserId: {} , WalletID: {}", userId, request.walletId());
         throw new BusinessException(ErrorCode.CONCURRENT_MODIFICATION, ErrorMessages.CONCURRENT_UPDATE_RETRY);
     }
@@ -146,7 +147,7 @@ public class WalletService {
      */
     @Transactional
     @Retryable(retryFor = {
-            ObjectOptimisticLockingFailureException.class }, maxAttempts = 3, backoff = @Backoff(delay = 100))
+            ObjectOptimisticLockingFailureException.class}, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public TransferResponse transfer(TransferRequest request, String payerUserId) {
         walletHelper.validateNotSameWallet(request.payerWalletId(), request.receiverWalletId());
 
@@ -192,7 +193,7 @@ public class WalletService {
      */
     @Recover
     public TransferResponse recoverTransfer(ObjectOptimisticLockingFailureException e, TransferRequest request,
-            String payerUserId) {
+                                            String payerUserId) {
         logger.error("Transfer failed after retries. PayerUserId: {}", payerUserId);
         throw new BusinessException(ErrorCode.CONCURRENT_MODIFICATION, ErrorMessages.CONCURRENT_UPDATE_RETRY);
     }
@@ -380,6 +381,26 @@ public class WalletService {
 
         return ResponseMessages.RESERVATION_CANCELLED;
     }
+
+    /**
+     * Retrieves all wallets belonging to a user.
+     *
+     * @param userId the authenticated user's ID
+     * @return list of wallets with their IDs, names, balances, and currencies
+     */
+    @Transactional(readOnly = true)
+    public List<GetWalletByUserIdResponse> getWalletByUserId(String userId) {
+        UUID userUuid = walletHelper.parseUserId(userId);
+        return walletRepository.findByUserId(userUuid)
+                .stream()
+                .map(wallet -> new GetWalletByUserIdResponse(
+                        wallet.getId(),
+                        wallet.getName(),
+                        wallet.getBalance(),
+                        wallet.getCurrency()))
+                .toList();
+    }
+
 
     private int updateReserveFunds(BigDecimal amount, UUID walletId, String userId, Long version) {
         UUID userUuid = walletHelper.parseUserId(userId);

@@ -14,15 +14,36 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class FallbackController {
 
+    /**
+     * Fallback endpoint for User Service circuit breaker.
+     *
+     * @return 503 Service Unavailable response with user-friendly message
+     */
     @RequestMapping("/user-fallback")
     public ResponseEntity<@NonNull String> userServiceFallback() {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
                 "The User Service is currently taking too long to respond or is down.");
     }
 
+    /**
+     * Fallback endpoint for Wallet Service circuit breaker.
+     *
+     * @return 503 Service Unavailable response with user-friendly message
+     */
     @RequestMapping("/wallet-fallback")
     public ResponseEntity<@NonNull String> walletServiceFallback() {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body("The Wallet Service is currently taking too long to respond or is down.");
+    }
+
+    /**
+     * Fallback endpoint for Payment Service circuit breaker.
+     *
+     * @return 503 Service Unavailable response with user-friendly message
+     */
+    @RequestMapping("/payment-fallback")
+    public ResponseEntity<@NonNull String> paymentServiceFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body("The Payment Service is currently taking too long to respond or is down.");
     }
 }

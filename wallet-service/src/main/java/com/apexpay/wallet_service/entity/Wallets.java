@@ -36,6 +36,9 @@ public class Wallets {
     @Column(nullable = false)
     private UUID userId;
 
+    @Column(nullable = false, length = 50)
+    private String name;
+
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal balance;
 

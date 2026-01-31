@@ -13,6 +13,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GatewayRouteConfig {
 
+    /**
+     * Defines custom routes for the API Gateway.
+     * Each route includes circuit breaker configuration for resilience.
+     *
+     * @param builder the RouteLocatorBuilder for creating routes
+     * @return configured RouteLocator with all service routes
+     */
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
@@ -40,6 +47,14 @@ public class GatewayRouteConfig {
                                         .setName("walletserviceCB")
                                         .setFallbackUri("forward:/wallet-fallback")))
                         .uri("lb://walletservice"))
+
+                .route("payment-service", r -> r
+                        .path("/api/v1/payment/**")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("paymentserviceCB")
+                                        .setFallbackUri("forward:/payment-fallback")))
+                        .uri("lb://paymentservice"))
                 .build();
     }
 }

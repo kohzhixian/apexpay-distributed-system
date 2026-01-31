@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,10 +33,12 @@ public interface WalletRepository extends JpaRepository<Wallets, UUID> {
             "AND w.userId = :userId " +
             "AND w.version = :currentVersion " +
             "AND (w.balance - w.reservedBalance) >= :amount")
-    // returns 1 if succeed and 0 if failed
+        // returns 1 if succeed and 0 if failed
     int tryReserveFunds(
             @Param("amount") BigDecimal amount,
             @Param("walletId") UUID walletId,
             @Param("userId") UUID userId,
             @Param("currentVersion") Long currentVersion);
+
+    List<Wallets> findByUserId(UUID userId);
 }

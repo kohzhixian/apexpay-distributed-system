@@ -1,7 +1,10 @@
 package com.apexpay.wallet_service.controller;
 
 import com.apexpay.common.constants.HttpHeaders;
-import com.apexpay.common.dto.*;
+import com.apexpay.common.dto.CancelReservationRequest;
+import com.apexpay.common.dto.ConfirmReservationRequest;
+import com.apexpay.common.dto.ReserveFundsRequest;
+import com.apexpay.common.dto.ReserveFundsResponse;
 import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
 import com.apexpay.wallet_service.dto.request.TopUpWalletRequest;
 import com.apexpay.wallet_service.dto.request.TransferRequest;
@@ -126,6 +129,18 @@ public class WalletController {
                                                     @PathVariable("walletId") UUID walletId,
                                                     @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         String response = walletService.cancelReservation(request, userId, walletId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Retrieves all wallets for the authenticated user.
+     *
+     * @param userId the authenticated user's ID from gateway
+     * @return 200 OK with list of wallets including IDs, names, balances, and currencies
+     */
+    @GetMapping("/user")
+    public ResponseEntity<List<GetWalletByUserIdResponse>> getWalletByUserId(@RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        List<GetWalletByUserIdResponse> response = walletService.getWalletByUserId(userId);
         return ResponseEntity.ok(response);
     }
 }

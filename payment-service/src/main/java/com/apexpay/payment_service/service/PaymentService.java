@@ -58,6 +58,13 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentProviderClient paymentProviderClient;
 
+    /**
+     * Constructs the PaymentService with required dependencies.
+     *
+     * @param walletClient          Feign client for wallet service communication
+     * @param paymentRepository     repository for payment persistence
+     * @param paymentProviderClient client for external payment provider
+     */
     public PaymentService(WalletClient walletClient, PaymentRepository paymentRepository,
                           PaymentProviderClient paymentProviderClient) {
         this.walletClient = walletClient;
@@ -461,6 +468,13 @@ public class PaymentService {
         }
     }
 
+    /**
+     * Creates and persists a new payment record in INITIATED status.
+     *
+     * @param request  the payment initiation request
+     * @param userUuid the user's UUID
+     * @return the saved payment entity
+     */
     private Payments createInitiatePayment(InitiatePaymentRequest request, UUID userUuid) {
         Payments newPayment = Payments.builder()
                 .amount(request.amount())

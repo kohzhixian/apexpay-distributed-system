@@ -16,6 +16,13 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+/**
+ * Helper component for common wallet operations.
+ * <p>
+ * Provides reusable methods for wallet retrieval, validation,
+ * and transaction creation used across the wallet service.
+ * </p>
+ */
 @Component
 public class WalletHelper {
 
@@ -28,6 +35,14 @@ public class WalletHelper {
         this.walletTransactionRepository = walletTransactionRepository;
     }
 
+    /**
+     * Retrieves a wallet by user ID and wallet ID.
+     *
+     * @param userId   the user ID who owns the wallet
+     * @param walletId the wallet ID to retrieve
+     * @return the wallet entity
+     * @throws BusinessException if wallet not found
+     */
     public Wallets getWalletByUserIdAndId(String userId, UUID walletId) {
         UUID userUuid = parseUserId(userId);
 
@@ -35,6 +50,15 @@ public class WalletHelper {
                 .orElseThrow(() -> new BusinessException(ErrorCode.WALLET_NOT_FOUND, ErrorMessages.WALLET_NOT_FOUND));
     }
 
+    /**
+     * Creates a wallet transaction with explicit status.
+     *
+     * @param wallet                    the wallet to create transaction for
+     * @param amount                    the transaction amount
+     * @param transactionType           the type of transaction (CREDIT/DEBIT)
+     * @param description               human-readable description
+     * @param walletTransactionStatus   the initial status of the transaction
+     */
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
                                   String description, WalletTransactionStatusEnum walletTransactionStatus) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
@@ -48,6 +72,16 @@ public class WalletHelper {
         walletTransactionRepository.save(newWalletTransaction);
     }
 
+    /**
+     * Creates a wallet transaction with external reference.
+     *
+     * @param wallet          the wallet to create transaction for
+     * @param amount          the transaction amount
+     * @param transactionType the type of transaction (CREDIT/DEBIT)
+     * @param description     human-readable description
+     * @param referenceId     external reference ID (e.g., payment ID)
+     * @param referenceType   type of the external reference
+     */
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
                                   String description, String referenceId, ReferenceTypeEnum referenceType) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
@@ -73,6 +107,13 @@ public class WalletHelper {
         return wallet.getBalance().subtract(wallet.getReservedBalance());
     }
 
+    /**
+     * Validates that the wallet has sufficient available balance.
+     *
+     * @param wallet the wallet to check
+     * @param amount the required amount
+     * @throws BusinessException if available balance is insufficient
+     */
     public void validateSufficientBalance(Wallets wallet, BigDecimal amount) {
         BigDecimal availableBalance = calculateAvailableBalance(wallet);
         if (availableBalance.compareTo(amount) < 0) {
@@ -80,12 +121,26 @@ public class WalletHelper {
         }
     }
 
+    /**
+     * Validates that source and destination wallets are different.
+     *
+     * @param wallet1Id first wallet ID
+     * @param wallet2Id second wallet ID
+     * @throws BusinessException if wallets are the same
+     */
     public void validateNotSameWallet(UUID wallet1Id, UUID wallet2Id) {
         if (wallet1Id.equals(wallet2Id)) {
             throw new BusinessException(ErrorCode.INVALID_TRANSFER, ErrorMessages.CANNOT_TRANSFER_SAME_WALLET);
         }
     }
 
+    /**
+     * Parses and validates a user ID string to UUID.
+     *
+     * @param userId the user ID string to parse
+     * @return the parsed UUID
+     * @throws BusinessException if user ID is null, blank, or invalid format
+     */
     public UUID parseUserId(String userId) {
         if (userId == null || userId.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, ErrorMessages.USER_ID_REQUIRED);
@@ -97,10 +152,23 @@ public class WalletHelper {
         }
     }
 
+    /**
+     * Resolves currency with SGD as default.
+     *
+     * @param currency the currency to resolve (may be null)
+     * @return the provided currency or SGD if null
+     */
     public CurrencyEnum resolveCurrency(CurrencyEnum currency) {
         return currency != null ? currency : CurrencyEnum.SGD;
     }
 
+    /**
+     * Retrieves a wallet transaction by ID.
+     *
+     * @param walletTransactionId the transaction ID to retrieve
+     * @return the wallet transaction entity
+     * @throws BusinessException if transaction not found or ID is null
+     */
     public WalletTransactions getWalletTransactionById(UUID walletTransactionId) {
         if (walletTransactionId == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, ErrorMessages.INVALID_WALLET_TRANSACTION_ID);

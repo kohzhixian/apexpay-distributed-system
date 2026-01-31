@@ -8,6 +8,13 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * JPA entity representing a user in the ApexPay system.
+ * <p>
+ * Stores user credentials and profile information.
+ * Passwords are stored as BCrypt hashes for security.
+ * </p>
+ */
 @Getter
 @Setter
 @Builder

@@ -45,4 +45,8 @@ public final class ValidationMessages {
     // User validations
     public static final String USERNAME_PATTERN = "Username can only contain letters, numbers, and underscores.";
     public static final String PASSWORD_MIN_LENGTH = "Password must be at least 8 characters.";
+
+    // Wallet validations
+    public static final String WALLET_NAME_REQUIRED = "Wallet name is required.";
+    public static final String WALLET_NAME_MAX_LENGTH = "Wallet name must not exceed 50 characters.";
 }

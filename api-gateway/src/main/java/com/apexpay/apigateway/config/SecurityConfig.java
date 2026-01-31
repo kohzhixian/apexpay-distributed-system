@@ -30,6 +30,12 @@ public class SecurityConfig {
         this.allowedOrigin = allowedOrigin;
     }
 
+    /**
+     * Creates the JWT filter bean for token validation.
+     *
+     * @param publicKey RSA public key resource for JWT signature verification
+     * @return configured GatewayJwtFilter instance
+     */
     @Bean
     public GatewayJwtFilter gatewayJwtFilter(
             @Value("${apexpay.jwt.public-key}") Resource publicKey
@@ -37,6 +43,14 @@ public class SecurityConfig {
         return new GatewayJwtFilter(publicKey);
     }
 
+    /**
+     * Configures the security filter chain for the gateway.
+     * Disables CSRF, form login, HTTP Basic as the gateway uses JWT authentication.
+     *
+     * @param http             the ServerHttpSecurity to configure
+     * @param gatewayJwtFilter the JWT filter for token validation
+     * @return configured SecurityWebFilterChain
+     */
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http, GatewayJwtFilter gatewayJwtFilter) {
         return http
@@ -63,6 +77,11 @@ public class SecurityConfig {
                 .build();
     }
 
+    /**
+     * Configures CORS settings for cross-origin requests.
+     *
+     * @return CorsConfigurationSource with allowed origins, methods, and headers
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
