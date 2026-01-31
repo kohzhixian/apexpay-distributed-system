@@ -20,7 +20,16 @@ public class ErrorResponse {
     private final String message;
     private final String path;
 
-    /** Constructor with error code (for BusinessException) */
+    /**
+     * Constructs an error response with an application-specific error code.
+     * Used for BusinessException and other custom exceptions.
+     *
+     * @param status  HTTP status code (e.g., 400, 404, 500)
+     * @param code    application-specific error code from ErrorCode enum
+     * @param error   HTTP status reason phrase (e.g., "Bad Request")
+     * @param message detailed error message for debugging
+     * @param path    request path that caused the error
+     */
     public ErrorResponse(int status, int code, String error, String message, String path) {
         this.timestamp = Instant.now();
         this.status = status;
@@ -30,7 +39,15 @@ public class ErrorResponse {
         this.path = path;
     }
 
-    /** Constructor without error code (for Spring's built-in exceptions) */
+    /**
+     * Constructs an error response without an application-specific error code.
+     * Used for Spring's built-in exceptions (validation, type mismatch, etc.).
+     *
+     * @param status  HTTP status code (e.g., 400, 404, 500)
+     * @param error   HTTP status reason phrase (e.g., "Bad Request")
+     * @param message detailed error message for debugging
+     * @param path    request path that caused the error
+     */
     public ErrorResponse(int status, String error, String message, String path) {
         this.timestamp = Instant.now();
         this.status = status;

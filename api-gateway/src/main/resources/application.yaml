@@ -31,10 +31,24 @@ resilience4j:
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
+      walletserviceCB:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+      paymentserviceCB:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
   timelimiter:
     instances:
       userserviceCB:
         timeoutDuration: 10s
+      walletserviceCB:
+        timeoutDuration: 10s
+      paymentserviceCB:
+        timeoutDuration: 15s
 
 eureka:
   client:
@@ -48,3 +62,5 @@ logging:
 apexpay:
   jwt:
     public-key: classpath:keys/public.pem
+  cors:
+    allowed-origin: http://localhost:5173 # Frontend base URL

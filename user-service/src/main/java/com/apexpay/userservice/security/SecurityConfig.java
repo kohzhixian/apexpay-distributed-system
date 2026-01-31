@@ -54,7 +54,11 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // create our own AuthenticationProvider
+    /**
+     * Creates the authentication provider with user details service and password encoder.
+     *
+     * @return configured DaoAuthenticationProvider for username/password authentication
+     */
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(myUserDetailsService);
@@ -62,11 +66,23 @@ public class SecurityConfig {
         return provider;
     }
 
+    /**
+     * Exposes the AuthenticationManager as a bean for use in AuthService.
+     *
+     * @param config the authentication configuration
+     * @return the configured AuthenticationManager
+     * @throws Exception if unable to get the authentication manager
+     */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
+    /**
+     * Creates the password encoder using BCrypt with strength 12.
+     *
+     * @return BCryptPasswordEncoder for hashing and verifying passwords
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);

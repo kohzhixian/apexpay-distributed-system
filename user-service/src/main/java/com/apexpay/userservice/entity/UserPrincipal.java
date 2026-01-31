@@ -1,5 +1,6 @@
 package com.apexpay.userservice.entity;
 
+import com.apexpay.userservice.constants.AuthConstants;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -19,7 +20,7 @@ public record UserPrincipal(Users user) implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singleton(new SimpleGrantedAuthority("USER"));
+        return Collections.singleton(new SimpleGrantedAuthority(AuthConstants.ROLE_USER));
     }
 
     @Override

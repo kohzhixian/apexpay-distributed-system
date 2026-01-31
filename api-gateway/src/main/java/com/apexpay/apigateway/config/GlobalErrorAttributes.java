@@ -25,6 +25,14 @@ import java.util.Map;
 public class GlobalErrorAttributes extends DefaultErrorAttributes {
     private static final Logger logger = LoggerFactory.getLogger(GlobalErrorAttributes.class);
 
+    /**
+     * Builds error attributes map for the error response.
+     * Maps exceptions to appropriate HTTP status codes and messages.
+     *
+     * @param request the current server request
+     * @param options options for error attribute inclusion
+     * @return map of error attributes including status, error, message, path, and timestamp
+     */
     @NotNull
     @Override
     public Map<String, Object> getErrorAttributes(ServerRequest request, ErrorAttributeOptions options) {
@@ -54,6 +62,13 @@ public class GlobalErrorAttributes extends DefaultErrorAttributes {
         return map;
     }
 
+    /**
+     * Determines if the error indicates a service unavailability condition.
+     * Checks for service discovery failures, connection errors, and load balancer issues.
+     *
+     * @param error the throwable to analyze
+     * @return true if the error indicates service unavailability, false otherwise
+     */
     private boolean isServiceUnavailableError(Throwable error) {
         // Check if it's a ResponseStatusException with 404 (service not found scenario)
         if (error instanceof ResponseStatusException rse) {

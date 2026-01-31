@@ -1,5 +1,6 @@
 package com.apexpay.userservice.service;
 
+import com.apexpay.common.constants.ErrorMessages;
 import com.apexpay.userservice.entity.UserPrincipal;
 import com.apexpay.userservice.entity.Users;
 import com.apexpay.userservice.repository.UserRepository;
@@ -36,7 +37,7 @@ public class MyUserDetailsService implements UserDetailsService {
         Users user = userRepository.findByEmail(email);
 
         if (user == null) {
-            throw new UsernameNotFoundException("User not found.");
+            throw new UsernameNotFoundException(ErrorMessages.USER_NOT_FOUND);
         }
         return new UserPrincipal(user);
     }

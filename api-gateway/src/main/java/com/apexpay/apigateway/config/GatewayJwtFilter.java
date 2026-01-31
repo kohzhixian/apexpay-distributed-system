@@ -38,8 +38,14 @@ import java.util.function.Function;
  */
 public class GatewayJwtFilter implements WebFilter {
 
-    private static final List<String> PUBLIC_ENDPOINTS = List.of("/api/v1/auth/**", "/user-fallback",
-            "/actuator/health", "/wallet-fallback");
+    private static final List<String> PUBLIC_ENDPOINTS = List.of(
+            "/api/v1/auth/register",
+            "/api/v1/auth/login",
+            "/api/v1/auth/refresh",
+            "/user-fallback",
+            "/actuator/health",
+            "/wallet-fallback",
+            "/payment-fallback");
     private static final Logger logger = LoggerFactory.getLogger(GatewayJwtFilter.class);
     private static final AntPathMatcher pathMatcher = new AntPathMatcher();
     private final PublicKey publicKey;
@@ -112,6 +118,12 @@ public class GatewayJwtFilter implements WebFilter {
         return chain.filter(mutatedExchange);
     }
 
+    /**
+     * Validates a JWT token by verifying its signature and expiration.
+     *
+     * @param token the JWT token string to validate
+     * @return true if token is valid and not expired, false otherwise
+     */
     public boolean isTokenValid(String token) {
         try {
             Jwts.parser()
@@ -130,14 +142,32 @@ public class GatewayJwtFilter implements WebFilter {
         return PUBLIC_ENDPOINTS.stream().anyMatch(pattern -> pathMatcher.match(pattern, path));
     }
 
+    /**
+     * Extracts the username claim from a JWT token.
+     *
+     * @param token the JWT token string
+     * @return the username stored in the token's "username" claim
+     */
     public String extractUsername(String token) {
         return extractClaim(token, claims -> claims.get("username", String.class));
     }
 
+    /**
+     * Extracts the email claim from a JWT token.
+     *
+     * @param token the JWT token string
+     * @return the email stored in the token's "email" claim
+     */
     public String extractEmail(String token) {
         return extractClaim(token, claims -> claims.get("email", String.class));
     }
 
+    /**
+     * Extracts the user ID (subject) from a JWT token.
+     *
+     * @param token the JWT token string
+     * @return the user ID stored in the token's "sub" (subject) claim
+     */
     public String extractUserId(String token) {
         return extractClaim(token, claims -> claims.get("sub", String.class));
     }
@@ -173,6 +203,14 @@ public class GatewayJwtFilter implements WebFilter {
         }
     }
 
+    /**
+     * Extracts JWT token from the request.
+     * First checks for "access_token" cookie, then falls back to Authorization
+     * header.
+     *
+     * @param exchange the server web exchange containing the request
+     * @return the JWT token string, or null if not found
+     */
     public String extractToken(ServerWebExchange exchange) {
         // Get token from cookie
         HttpCookie accessTokenCookie = exchange.getRequest().getCookies().getFirst("access_token");

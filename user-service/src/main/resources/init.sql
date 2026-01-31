@@ -44,6 +44,7 @@ CREATE INDEX idx_refresh_tokens_user ON userservice.refresh_tokens(user_id);
 CREATE TABLE walletservice.wallets(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
+    wallet_name VARCHAR(50) NOT NULL,
     balance DECIMAL(15,2) NOT NULL,
     reserved_balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
     currency VARCHAR(3) NOT NULL DEFAULT 'SGD',
@@ -58,10 +59,11 @@ CREATE TABLE walletservice.wallet_transactions(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wallet_id UUID NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
-    transaction_type VARCHAR(6) NOT NULL, -- CREDIT or DEBIT
+    transaction_type VARCHAR(7) NOT NULL, -- CREDIT or DEBIT
     reference_id VARCHAR(255),
     reference_type VARCHAR(50),
     description TEXT,
+    status VARCHAR(25) NOT NULL, -- tracks the movement of balance and reserved_balance (PENDING, COMPLETED, CANCELLED)
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_wallet
@@ -75,8 +77,17 @@ CREATE TABLE paymentservice.payments(
     amount DECIMAL(15,2) NOT NULL,
     currency VARCHAR(3) NOT NULL DEFAULT 'SGD',
     client_request_id VARCHAR(255) UNIQUE NOT NULL,
-    status VARCHAR(25) NOT NULL,
+    status VARCHAR(25) NOT NULL, -- (INITIATED, PENDING, SUCCESS, FAILED, REFUNDED)
     provider VARCHAR(50),
+    version BIGINT NOT NULL DEFAULT 0,
+    wallet_id UUID NOT NULL,
+    wallet_transaction_id UUID, -- Links to wallet transaction created during fund reservation
+    failure_code VARCHAR(50),
+    failure_message VARCHAR(500),
+    provider_transaction_id VARCHAR(100),
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_payments_provider_transaction_id ON paymentservice.payments(provider_transaction_id);
+

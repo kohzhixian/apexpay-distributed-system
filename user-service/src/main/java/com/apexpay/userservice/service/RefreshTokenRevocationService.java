@@ -9,6 +9,14 @@ import com.apexpay.userservice.repository.RefreshtokenRepository;
 
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Service for revoking refresh token families in a separate transaction.
+ * <p>
+ * This service exists to enable {@code REQUIRES_NEW} transaction propagation,
+ * which only works when called from a different Spring bean. Used for cascade
+ * revocation when token reuse is detected (potential security breach).
+ * </p>
+ */
 @Service
 public class RefreshTokenRevocationService {
     private final RefreshtokenRepository refreshtokenRepository;
@@ -18,8 +26,13 @@ public class RefreshTokenRevocationService {
         this.refreshtokenRepository = refreshtokenRepository;
     }
 
-    // requires new only work from a different spring bean
-    // hence the creation of this class
+    /**
+     * Revokes all tokens in a token family.
+     * Executes in a new transaction to ensure revocation commits even if
+     * the calling transaction rolls back.
+     *
+     * @param familyId the UUID of the token family to revoke
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void revokeTokenFamily(UUID familyId) {
         refreshtokenRepository.revokeAllRefreshTokensByFamilyId(familyId);

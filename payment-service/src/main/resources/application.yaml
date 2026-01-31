@@ -23,3 +23,27 @@ logging:
   level:
     com.netflix.discovery: DEBUG
     com.netflix.eureka: DEBUG
+
+# Feign configuration
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+        loggerLevel: FULL
+
+
+payment:
+  provider:
+    mock:
+      enabled: true
+      success-rate: 0.95
+      min-latency-ms: 100
+      max-latency-ms: 500
+      test-token-outcomes:
+        tok_success: SUCCESS
+        tok_decline: CARD_DECLINED
+    stripe:
+      api-key:
+      webhook-secret:

@@ -1,5 +1,6 @@
 package com.apexpay.userservice.exception;
 
+import com.apexpay.common.constants.ErrorMessages;
 import com.apexpay.common.dto.ErrorResponse;
 import com.apexpay.common.exception.BusinessException;
 import com.apexpay.common.exception.ErrorCode;
@@ -14,6 +15,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.stream.Collectors;
 
+/**
+ * Global exception handler for the User Service.
+ * <p>
+ * Catches and transforms exceptions into standardized {@link ErrorResponse} objects.
+ * Handles business exceptions, validation errors, and security exceptions.
+ * Returns generic messages for authentication failures to prevent user enumeration.
+ * </p>
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -43,7 +52,7 @@ public class GlobalExceptionHandler {
 
         log.warn("Validation failed: {}", errorMessage);
         return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED.getCode(),
-                "Validation Failed", errorMessage, request);
+                ErrorMessages.VALIDATION_FAILED, errorMessage, request);
     }
 
     /**
@@ -56,7 +65,7 @@ public class GlobalExceptionHandler {
             org.springframework.security.authentication.BadCredentialsException ex,
             HttpServletRequest request) {
         log.warn("Spring Security authentication failed: {}", ex.getMessage());
-        return buildResponse(ErrorCode.INVALID_CREDENTIALS, "Invalid credentials", request);
+        return buildResponse(ErrorCode.INVALID_CREDENTIALS, ErrorMessages.INVALID_EMAIL_OR_PASSWORD, request);
     }
 
     /**
@@ -68,7 +77,7 @@ public class GlobalExceptionHandler {
             org.springframework.security.core.userdetails.UsernameNotFoundException ex,
             HttpServletRequest request) {
         log.warn("User not found: {}", ex.getMessage());
-        return buildResponse(ErrorCode.INVALID_CREDENTIALS, "Invalid credentials", request);
+        return buildResponse(ErrorCode.INVALID_CREDENTIALS, ErrorMessages.INVALID_EMAIL_OR_PASSWORD, request);
     }
 
     /**
@@ -88,7 +97,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<@NonNull ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);
-        return buildResponse(ErrorCode.INTERNAL_ERROR, "An unexpected error occurred", request);
+        return buildResponse(ErrorCode.INTERNAL_ERROR, ErrorMessages.UNEXPECTED_ERROR_OCCURRED, request);
     }
 
     /** Helper to build response using ErrorCode */

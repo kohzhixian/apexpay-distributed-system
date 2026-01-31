@@ -8,184 +8,38 @@ This document outlines recommended improvements for the ApexPay authentication s
 
 ### ✅ Completed
 
-- JWT-based stateless authentication
+- JWT-based stateless authentication with RS256 signing
 - BCrypt password hashing (strength 12)
 - Stateless session management
 - Public/protected endpoint configuration
-- JWT token generation and validation
+- JWT token generation with issuer, audience, and JTI claims
 - Custom UserDetailsService implementation
+- CORS configuration (in api-gateway)
+- Refresh token mechanism with token rotation and family-based revocation
+- Global exception handler with standardized error responses
+- Logout with cookie clearing and token revocation
 
 ---
 
 ## Recommended Improvements
 
-### 1. Add `shouldNotFilter()` to JwtFilter
-
-**Priority:** Medium  
-**Effort:** Low
-
-Skip JWT validation for public endpoints to improve performance.
-
-```java
-// In JwtFilter.java
-@Override
-protected boolean shouldNotFilter(HttpServletRequest request) {
-    String path = request.getRequestURI();
-    return path.startsWith("/api/v1/auth/") || path.equals("/error");
-}
-```
-
-**Why:** Currently, the JWT filter runs on every request including public endpoints. This adds unnecessary processing overhead.
-
----
-
-### 2. Add CORS Configuration
-
-**Priority:** High (if frontend is on different domain)  
-**Effort:** Low
-
-```java
-// In SecurityConfig.java
-@Bean
-public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(List.of("http://localhost:3000")); // Your frontend URL
-    configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(List.of("*"));
-    configuration.setAllowCredentials(true);
-    configuration.setMaxAge(3600L);
-
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", configuration);
-    return source;
-}
-
-// Then add to securityFilterChain:
-http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-```
-
-**Why:** Required when your frontend (React/Vue) runs on a different origin than your API.
-
----
-
-### 3. Enhanced JWT Claims
+### 1. Add Roles to JWT Claims
 
 **Priority:** Low  
 **Effort:** Low
 
-Add issuer, audience, and custom claims for better security and flexibility.
+Currently, JWT includes issuer and audience but not user roles. Adding roles enables stateless authorization.
 
 ```java
-// In JwtService.java
-public String generateToken(String username, Collection<? extends GrantedAuthority> authorities) {
-    List<String> roles = authorities.stream()
-            .map(GrantedAuthority::getAuthority)
-            .toList();
-
-    return Jwts.builder()
-            .claims()
-            .subject(username)
-            .issuer("apexpay-user-service")
-            .audience().add("apexpay-services").and()
-            .add("roles", roles)
-            .issuedAt(new Date())
-            .expiration(new Date(System.currentTimeMillis() + jwtTimeout))
-            .and()
-            .signWith(getKey())
-            .compact();
-}
+// In JwtService.java - add roles claim
+extraClaims.put("roles", List.of("ROLE_USER")); // or from user entity
 ```
 
-**Why:**
-
-- `issuer` identifies which service created the token
-- `audience` specifies intended recipients
-- `roles` allows stateless authorization without database lookup
+**Why:** Allows stateless authorization without database lookup at the gateway.
 
 ---
 
-### 4. Implement Refresh Token Mechanism
-
-**Priority:** Medium  
-**Effort:** High
-
-Implement refresh tokens for better security with short-lived access tokens.
-
-#### Recommended Flow:
-
-```
-1. Login → Returns access_token (15 min) + refresh_token (7 days)
-2. Access token expires → Call /api/v1/auth/refresh with refresh_token
-3. Server validates refresh_token → Returns new access_token
-4. Logout → Invalidate refresh_token in database
-```
-
-#### Implementation Steps:
-
-1. Create `RefreshToken` entity (you already have `RefreshTokens`)
-2. Add `/api/v1/auth/refresh` endpoint
-3. Add `/api/v1/auth/logout` endpoint
-4. Store refresh tokens in database with expiration
-5. Implement token rotation (new refresh token on each refresh)
-
-#### Database Schema:
-
-```sql
-CREATE TABLE refresh_tokens (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
-    token VARCHAR(255) UNIQUE NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    revoked BOOLEAN DEFAULT FALSE
-);
-```
-
-**Why:** Short-lived access tokens reduce the window of attack if a token is compromised. Refresh tokens can be revoked on logout or security events.
-
----
-
-### 5. Global Exception Handler for Auth Errors
-
-**Priority:** Medium  
-**Effort:** Low
-
-Create consistent error responses for authentication failures.
-
-```java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(ExpiredJwtException.class)
-    public ResponseEntity<ErrorResponse> handleExpiredJwt(ExpiredJwtException e) {
-        return ResponseEntity
-            .status(HttpStatus.UNAUTHORIZED)
-            .body(new ErrorResponse("TOKEN_EXPIRED", "Your session has expired. Please login again."));
-    }
-
-    @ExceptionHandler(JwtException.class)
-    public ResponseEntity<ErrorResponse> handleJwtException(JwtException e) {
-        return ResponseEntity
-            .status(HttpStatus.UNAUTHORIZED)
-            .body(new ErrorResponse("INVALID_TOKEN", "Invalid authentication token."));
-    }
-
-    @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleUserNotFound(UsernameNotFoundException e) {
-        return ResponseEntity
-            .status(HttpStatus.UNAUTHORIZED)
-            .body(new ErrorResponse("USER_NOT_FOUND", "Invalid credentials."));
-    }
-}
-
-public record ErrorResponse(String code, String message) {}
-```
-
-**Why:** Provides consistent, structured error responses that frontends can handle programmatically.
-
----
-
-### 6. Role-Based Access Control (RBAC)
+### 2. Role-Based Access Control (RBAC)
 
 **Priority:** Low (implement when needed)  
 **Effort:** Medium
@@ -229,7 +83,7 @@ ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'USER';
 
 ---
 
-### 7. Rate Limiting for Auth Endpoints
+### 3. Rate Limiting for Auth Endpoints
 
 **Priority:** High  
 **Effort:** Medium
@@ -258,7 +112,97 @@ Configure rate limiting in your `api-gateway` service.
 
 ---
 
-### 8. Account Security Features
+### 4. Immediate Access Token Invalidation on Logout
+
+**Priority:** Medium  
+**Effort:** Medium-High
+
+Currently, access tokens remain valid until their natural expiry (~15 minutes) even after logout. This is a fundamental limitation of stateless JWTs. Options to address this:
+
+#### Option A: Token Blacklist with Redis (Recommended for Production)
+
+Add a blacklist cache that the gateway checks on every request.
+
+**Implementation:**
+
+1. Add Redis dependency to api-gateway
+2. On logout, add access token to Redis with TTL = remaining token lifetime
+3. Gateway checks blacklist before forwarding requests
+
+```java
+// In api-gateway GatewayJwtFilter
+@Autowired
+private RedisTemplate<String, String> redisTemplate;
+
+private boolean isTokenBlacklisted(String token) {
+    return Boolean.TRUE.equals(redisTemplate.hasKey("blacklist:" + token));
+}
+
+// In user-service logout
+public void blacklistAccessToken(String accessToken, long remainingTtlSeconds) {
+    redisTemplate.opsForValue().set(
+        "blacklist:" + accessToken, 
+        "revoked", 
+        remainingTtlSeconds, 
+        TimeUnit.SECONDS
+    );
+}
+```
+
+**Pros:** Immediate invalidation, industry standard  
+**Cons:** Requires Redis, adds ~1-2ms latency per request
+
+#### Option B: Reduce Token Lifetime
+
+Reduce `JWT_TIMEOUT` from 15 minutes to 5 minutes.
+
+```yaml
+# In user-service application.yaml
+JWT_TIMEOUT=300000  # 5 minutes instead of 15
+```
+
+**Pros:** Simple, no infrastructure changes  
+**Cons:** More frequent refresh calls
+
+#### Option C: Token Version Per User
+
+Store a `tokenVersion` in the user record. Include it in JWT. On logout, increment the version.
+
+```java
+// In Users entity
+@Column(nullable = false)
+private Long tokenVersion = 0L;
+
+// On logout
+user.setTokenVersion(user.getTokenVersion() + 1);
+
+// In JWT claims
+.claim("tokenVersion", user.getTokenVersion())
+
+// Gateway validation
+if (!tokenVersion.equals(userService.getTokenVersion(userId))) {
+    throw new UnauthorizedException("Token invalidated");
+}
+```
+
+**Pros:** No Redis needed  
+**Cons:** Gateway needs to call user-service (defeats stateless JWT benefit)
+
+#### Option D: Accept the Limitation (Current)
+
+Most systems accept this trade-off:
+- 15-minute window is acceptable for most use cases
+- Cookies are cleared immediately (user appears logged out)
+- Refresh tokens are revoked (can't get new access tokens)
+
+**Recommendation:**
+- Learning/MVP: Option D
+- Medium security: Option B (reduce to 5 min)
+- Production/High security: Option A (Redis blacklist)
+
+---
+
+### 5. Account Security Features
 
 **Priority:** Medium  
 **Effort:** High
@@ -273,7 +217,7 @@ Consider implementing:
 
 ---
 
-### 9. Security Headers
+### 6. Security Headers
 
 **Priority:** Medium  
 **Effort:** Low
@@ -293,32 +237,31 @@ http.headers(headers -> headers
 
 ## Implementation Priority Order
 
-| Priority | Item                                    | Effort |
-| -------- | --------------------------------------- | ------ |
-| 1        | CORS Configuration (if frontend exists) | Low    |
-| 2        | Rate Limiting                           | Medium |
-| 3        | shouldNotFilter() in JwtFilter          | Low    |
-| 4        | Global Exception Handler                | Low    |
-| 5        | Refresh Token Mechanism                 | High   |
-| 6        | Enhanced JWT Claims                     | Low    |
-| 7        | Role-Based Access Control               | Medium |
-| 8        | Account Security Features               | High   |
-| 9        | Security Headers                        | Low    |
+| Priority | Item                                       | Effort |
+| -------- | ------------------------------------------ | ------ |
+| 1        | Rate Limiting                              | Medium |
+| 2        | Add Roles to JWT Claims                    | Low    |
+| 3        | Role-Based Access Control                  | Medium |
+| 4        | Access Token Invalidation (Redis blacklist)| Medium |
+| 5        | Account Security Features                  | High   |
+| 6        | Security Headers                           | Low    |
 
 ---
 
 ## Security Checklist Before Production
 
-- [ ] JWT secret key is at least 256 bits and stored securely
-- [ ] JWT timeout is appropriately short (15-30 minutes for access tokens)
+- [x] JWT uses RS256 asymmetric signing (private/public key pair)
+- [x] JWT timeout is appropriately short (15 minutes for access tokens)
+- [x] CORS is configured for specific origins (not `*`)
+- [x] Refresh token rotation is implemented
+- [x] Refresh tokens are hashed before storage
+- [x] Token family tracking for cascade revocation
+- [x] Error messages don't leak implementation details
+- [x] Database credentials are in environment variables
 - [ ] HTTPS is enforced in production
-- [ ] CORS is configured for specific origins (not `*`)
 - [ ] Rate limiting is enabled on auth endpoints
-- [ ] Sensitive data is not logged
-- [ ] Error messages don't leak implementation details
-- [ ] Database credentials are in environment variables
-- [ ] Refresh token rotation is implemented
 - [ ] Account lockout is implemented
+- [ ] Sensitive data is not logged (audit logging)
 
 ---
 

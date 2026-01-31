@@ -1,5 +1,6 @@
 package com.apexpay.wallet_service.exceptions;
 
+import com.apexpay.common.constants.ErrorMessages;
 import com.apexpay.common.dto.ErrorResponse;
 import com.apexpay.common.exception.BusinessException;
 import com.apexpay.common.exception.ErrorCode;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.stream.Collectors;
 
@@ -46,7 +48,7 @@ public class GlobalExceptionHandler {
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .collect(Collectors.joining(", "));
         log.warn("Validation failed: {}", errorMessage);
-        return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED.getCode(), "Validation Failed",
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED.getCode(), ErrorMessages.VALIDATION_FAILED,
                 errorMessage, request);
     }
 
@@ -62,7 +64,20 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         log.warn("Validation failed: {}", errorMessage);
-        return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED.getCode(), "Validation Failed",
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED.getCode(), ErrorMessages.VALIDATION_FAILED,
+                errorMessage, request);
+    }
+
+    /**
+     * Handles type mismatch exceptions (e.g., invalid UUID format in path variables).
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<@NonNull ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                                      HttpServletRequest request) {
+        String errorMessage = String.format(ErrorMessages.INVALID_PARAMETER_FORMAT,
+                ex.getName(), ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "valid format");
+        log.warn("Type mismatch: {}", errorMessage);
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED.getCode(), "Invalid Parameter Format",
                 errorMessage, request);
     }
 
@@ -79,7 +94,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<@NonNull ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);
-        return buildResponse(ErrorCode.INTERNAL_ERROR, "An unexpected error occurred.", request);
+        return buildResponse(ErrorCode.INTERNAL_ERROR, ErrorMessages.UNEXPECTED_ERROR_OCCURRED, request);
     }
 
     /**

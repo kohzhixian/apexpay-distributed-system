@@ -27,21 +27,29 @@ public class RefreshTokens {
     @Column(columnDefinition = "UUID")
     private UUID id;
 
-    /** BCrypt-hashed refresh token for secure storage */
+    /**
+     * BCrypt-hashed refresh token for secure storage
+     */
     @Column(name = "hashed_refresh_token", nullable = false)
     private String hashedRefreshToken;
 
-    /** Groups related tokens for cascade revocation on reuse detection */
+    /**
+     * Groups related tokens for cascade revocation on reuse detection
+     */
     @Builder.Default
     @Column(columnDefinition = "UUID")
     private UUID familyId = UUID.randomUUID();
 
-    /** Marks token as used; reuse of consumed token triggers family revocation */
+    /**
+     * Marks token as used; reuse of consumed token triggers family revocation
+     */
     @Builder.Default
     private boolean consumed = false;
 
-    /** Client IP for anomaly detection */
-    @Column(nullable = false)
+    /**
+     * Client IP for anomaly detection
+     */
+    @Column(nullable = false, length = 45)
     private String ipAddress;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -51,7 +59,9 @@ public class RefreshTokens {
     @Column(nullable = false)
     private Instant expiryDate;
 
-    /** Manual revocation flag (e.g., logout, security concern) */
+    /**
+     * Manual revocation flag (e.g., logout, security concern)
+     */
     @Builder.Default
     private boolean isRevoked = false;
 

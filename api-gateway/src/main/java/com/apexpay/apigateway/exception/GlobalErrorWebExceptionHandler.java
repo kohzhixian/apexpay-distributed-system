@@ -27,6 +27,13 @@ import java.util.Map;
 @Order(-2)
 public class GlobalErrorWebExceptionHandler extends AbstractErrorWebExceptionHandler {
 
+    /**
+     * Constructs the global error handler with required dependencies.
+     *
+     * @param globalErrorAttributes custom error attributes mapper
+     * @param applicationContext    Spring application context
+     * @param serverCodecConfigurer codec configurer for message readers/writers
+     */
     public GlobalErrorWebExceptionHandler(GlobalErrorAttributes globalErrorAttributes,
                                           ApplicationContext applicationContext,
                                           ServerCodecConfigurer serverCodecConfigurer) {
@@ -35,12 +42,24 @@ public class GlobalErrorWebExceptionHandler extends AbstractErrorWebExceptionHan
         super.setMessageWriters(serverCodecConfigurer.getWriters());
     }
 
+    /**
+     * Creates the routing function that handles all error requests.
+     *
+     * @param errorAttributes the error attributes to use for building responses
+     * @return router function that routes all requests to the error renderer
+     */
     @Override
     @NullMarked
     protected RouterFunction<ServerResponse> getRoutingFunction(ErrorAttributes errorAttributes) {
         return RouterFunctions.route(RequestPredicates.all(), this::renderErrorResponse);
     }
 
+    /**
+     * Renders the error response as JSON with appropriate HTTP status.
+     *
+     * @param request the server request that caused the error
+     * @return Mono containing the JSON error response
+     */
     private Mono<ServerResponse> renderErrorResponse(ServerRequest request) {
         Map<String, Object> errorPropertiesMap = getErrorAttributes(request, ErrorAttributeOptions.defaults());
         int status = (int) errorPropertiesMap.getOrDefault("status", 500);
