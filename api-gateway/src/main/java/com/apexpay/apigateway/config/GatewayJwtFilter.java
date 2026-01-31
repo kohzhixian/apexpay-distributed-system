@@ -38,8 +38,14 @@ import java.util.function.Function;
  */
 public class GatewayJwtFilter implements WebFilter {
 
-    private static final List<String> PUBLIC_ENDPOINTS = List.of("/api/v1/auth/**", "/user-fallback",
-            "/actuator/health", "/wallet-fallback", "/payment-fallback");
+    private static final List<String> PUBLIC_ENDPOINTS = List.of(
+            "/api/v1/auth/register",
+            "/api/v1/auth/login",
+            "/api/v1/auth/refresh",
+            "/user-fallback",
+            "/actuator/health",
+            "/wallet-fallback",
+            "/payment-fallback");
     private static final Logger logger = LoggerFactory.getLogger(GatewayJwtFilter.class);
     private static final AntPathMatcher pathMatcher = new AntPathMatcher();
     private final PublicKey publicKey;
@@ -199,7 +205,8 @@ public class GatewayJwtFilter implements WebFilter {
 
     /**
      * Extracts JWT token from the request.
-     * First checks for "access_token" cookie, then falls back to Authorization header.
+     * First checks for "access_token" cookie, then falls back to Authorization
+     * header.
      *
      * @param exchange the server web exchange containing the request
      * @return the JWT token string, or null if not found

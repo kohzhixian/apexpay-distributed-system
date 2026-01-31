@@ -211,7 +211,7 @@ public class PaymentService {
                             paymentId, walletTransactionId, e);
                 }
 
-                paymentRecord = updatePaymentToSuccess(paymentRecord, chargeResponse);
+                paymentRecord = updatePaymentToSuccess(paymentRecord, chargeResponse, walletTransactionId);
 
                 return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.SUCCESS,
                         ResponseMessages.PAYMENT_SUCCEEDED);
@@ -263,7 +263,9 @@ public class PaymentService {
     @Transactional
     public PaymentResponse checkPaymentStatus(UUID paymentId, String userId) {
         UUID userUuid = UUID.fromString(userId);
-        Payments payment = paymentRepository.findById(paymentId)
+        // Use pessimistic lock to prevent concurrent status checks from triggering
+        // duplicate wallet operations (confirmReservation/cancelReservation)
+        Payments payment = paymentRepository.findByIdWithLock(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND,
                         ErrorMessages.PAYMENT_NOT_FOUND));
 
@@ -312,7 +314,7 @@ public class PaymentService {
                             paymentId);
                 }
 
-                payment = updatePaymentToSuccess(payment, providerResponse);
+                payment = updatePaymentToSuccess(payment, providerResponse, walletTxId);
                 return new PaymentResponse(payment.getId(), PaymentStatusEnum.SUCCESS,
                         ResponseMessages.PAYMENT_SUCCEEDED);
             } else if (providerResponse.status() == ProviderTransactionStatus.PENDING) {
@@ -421,6 +423,7 @@ public class PaymentService {
                 return response;
             } catch (PaymentProviderException e) {
                 lastException = e;
+                lastResponse = null; // Clear stale response - exception is more recent failure state
                 if (e.isRetryable() && attempt < MAX_RETRIES) {
                     logger.warn("Provider exception (retryable), attempt {}/{}: {}",
                             attempt, MAX_RETRIES, e.getMessage());
@@ -433,6 +436,7 @@ public class PaymentService {
                 lastException = new PaymentProviderException(
                         String.format(ErrorMessages.UNEXPECTED_ERROR, e.getMessage()),
                         null, true, paymentProviderClient.getProviderName());
+                lastResponse = null; // Clear stale response - exception is more recent failure state
                 if (attempt < MAX_RETRIES) {
                     waitBeforeRetry(attempt);
                 }
@@ -539,20 +543,26 @@ public class PaymentService {
     /**
      * Updates payment to SUCCESS status with provider transaction details.
      * Uses optimistic locking to prevent concurrent modification conflicts.
-     * Stores providerTransactionId and providerName for reconciliation and refund operations.
+     * Stores providerTransactionId, providerName, and walletTransactionId for reconciliation.
+     * <p>
+     * The walletTransactionId is critical for reconciliation - if confirmReservation fails
+     * after a successful charge, this ID enables identifying and resolving "zombie" reservations.
+     * </p>
      *
-     * @param payment  the payment entity to update
-     * @param response the successful charge response from provider
+     * @param payment             the payment entity to update
+     * @param response            the successful charge response from provider
+     * @param walletTransactionId the wallet transaction ID for reconciliation (may be null for checkPaymentStatus path)
      * @return the updated and persisted payment entity
      * @throws BusinessException if concurrent modification detected (version
      *                           mismatch)
      */
-    private Payments updatePaymentToSuccess(Payments payment, ProviderChargeResponse response) {
+    private Payments updatePaymentToSuccess(Payments payment, ProviderChargeResponse response, UUID walletTransactionId) {
         Long currentVersion = payment.getVersion();
         int updated = paymentRepository.updatePaymentSuccess(
                 payment.getId(),
                 response.providerTransactionId(),
                 response.providerName(),
+                walletTransactionId,
                 currentVersion);
 
         if (updated == 0) {

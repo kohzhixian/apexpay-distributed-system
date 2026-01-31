@@ -55,21 +55,28 @@ public interface PaymentRepository extends JpaRepository<Payments, UUID> {
     /**
      * Updates payment to SUCCESS status with optimistic locking.
      * <p>
-     * Atomically updates payment status, provider transaction ID, provider name, and version
-     * only if the version matches (prevents concurrent modification conflicts).
+     * Atomically updates payment status, provider transaction ID, provider name,
+     * wallet transaction ID, and version only if the version matches
+     * (prevents concurrent modification conflicts).
      * Returns the number of rows updated (0 if version mismatch).
+     * </p>
+     * <p>
+     * The walletTransactionId is stored for reconciliation purposes - if confirmReservation
+     * fails after a successful charge, this ID enables later reconciliation of "zombie" reservations.
      * </p>
      *
      * @param paymentId             the payment ID to update
      * @param providerTransactionId the provider's transaction identifier
      * @param providerName          the name of the payment provider
+     * @param walletTransactionId   the wallet transaction ID for reconciliation
      * @param version               the expected current version (for optimistic locking)
      * @return number of rows updated (1 if successful, 0 if version mismatch)
      */
     @Modifying
-    @Query("UPDATE Payments p SET p.status = 'SUCCESS', p.providerTransactionId = :providerTransactionId, p.provider = :providerName, p.version = p.version + 1 WHERE p.id = :paymentId AND p.version = :version")
+    @Query("UPDATE Payments p SET p.status = 'SUCCESS', p.providerTransactionId = :providerTransactionId, p.provider = :providerName, p.walletTransactionId = :walletTransactionId, p.version = p.version + 1 WHERE p.id = :paymentId AND p.version = :version")
     int updatePaymentSuccess(@Param("paymentId") UUID paymentId, @Param("providerTransactionId") String providerTransactionId,
-                             @Param("providerName") String providerName, @Param("version") Long version);
+                             @Param("providerName") String providerName, @Param("walletTransactionId") UUID walletTransactionId,
+                             @Param("version") Long version);
 
     /**
      * Updates payment to PENDING status with provider transaction ID and wallet transaction ID.
