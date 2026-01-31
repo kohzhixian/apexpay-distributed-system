@@ -25,7 +25,7 @@ public class GatewayRouteConfig {
         return builder.routes()
                 // Route for User service - Auth endpoints
                 .route("user-service-auth", r -> r
-                        .path("/api/v1/auth/**")
+                        .path("/api/v1/auth/**", "/api/v1/user/**")
                         .filters(f -> f
                                 .circuitBreaker(config -> config
                                         .setName("userserviceCB")
@@ -39,7 +39,7 @@ public class GatewayRouteConfig {
                                         .setName("userserviceCB")
                                         .setFallbackUri("forward:/user-fallback")))
                         .uri("lb://userservice"))
-                
+
                 .route("wallet-service", r -> r
                         .path("/api/v1/wallet/**")
                         .filters(f -> f
