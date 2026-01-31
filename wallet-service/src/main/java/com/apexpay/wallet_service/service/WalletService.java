@@ -76,7 +76,7 @@ public class WalletService {
         UUID userUuid = walletHelper.parseUserId(userId);
         BigDecimal defaultReservedBalance = new BigDecimal("0.00");
         Wallets newWallet = Wallets.builder()
-                .name(request.name().trim())
+                .walletName(request.name().trim())
                 .balance(request.balance())
                 .userId(userUuid)
                 .reservedBalance(defaultReservedBalance)
@@ -84,8 +84,8 @@ public class WalletService {
                 .build();
 
         walletRepository.save(newWallet);
-        logger.info("Wallet created. WalletId: {}, Name: {}, UserId: {}", newWallet.getId(), newWallet.getName(), userUuid);
-        return new CreateWalletResponse(ResponseMessages.WALLET_CREATED, newWallet.getId(), newWallet.getName());
+        logger.info("Wallet created. WalletId: {}, Name: {}, UserId: {}", newWallet.getId(), newWallet.getWalletName(), userUuid);
+        return new CreateWalletResponse(ResponseMessages.WALLET_CREATED, newWallet.getId(), newWallet.getWalletName());
     }
 
     /**
@@ -395,7 +395,7 @@ public class WalletService {
                 .stream()
                 .map(wallet -> new GetWalletByUserIdResponse(
                         wallet.getId(),
-                        wallet.getName(),
+                        wallet.getWalletName(),
                         wallet.getBalance(),
                         wallet.getCurrency()))
                 .toList();

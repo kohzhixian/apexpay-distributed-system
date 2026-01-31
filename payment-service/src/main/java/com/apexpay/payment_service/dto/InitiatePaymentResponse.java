@@ -10,10 +10,11 @@ import java.util.UUID;
  * operations.
  * </p>
  *
- * @param message  a human-readable message indicating whether a new payment
- *                was created or an existing one was returned
- * @param paymentId the ID of the payment (newly created or existing)
- * @param version  the current version of the payment entity (for optimistic locking)
+ * @param message      a human-readable message indicating whether a new payment
+ *                     was created or an existing one was returned
+ * @param paymentId    the ID of the payment (newly created or existing)
+ * @param version      the current version of the payment entity (for optimistic locking)
+ * @param isNewPayment true if a new payment was created, false if returning existing (idempotent)
  */
-public record InitiatePaymentResponse(String message, UUID paymentId, Long version) {
+public record InitiatePaymentResponse(String message, UUID paymentId, Long version, boolean isNewPayment) {
 }

@@ -100,14 +100,14 @@ public class PaymentService {
                 logger.info("Duplicate payment request detected. ClientRequestId: {}, PaymentId: {}",
                         request.clientRequestId(), existing.getId());
                 return new InitiatePaymentResponse(ResponseMessages.RETURNING_EXISTING_PAYMENT, existing.getId(),
-                        existing.getVersion());
+                        existing.getVersion(), false);
             }
 
             // create new payment record
             Payments newPayment = createInitiatePayment(request, userUuid);
 
             return new InitiatePaymentResponse(ResponseMessages.PAYMENT_INITIATED, newPayment.getId(),
-                    newPayment.getVersion());
+                    newPayment.getVersion(), true);
 
         } catch (DataIntegrityViolationException e) {
             // Race condition: another thread created payment between check and insert
@@ -120,7 +120,7 @@ public class PaymentService {
                             ErrorMessages.PAYMENT_CREATION_FAILED));
 
             return new InitiatePaymentResponse(ResponseMessages.RETURNING_EXISTING_PAYMENT, existing.getId(),
-                    existing.getVersion());
+                    existing.getVersion(), false);
         }
     }
 

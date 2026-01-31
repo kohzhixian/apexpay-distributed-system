@@ -39,19 +39,21 @@ public class PaymentController {
      * <p>
      * Creates a payment record in INITIATED status. This endpoint is idempotent -
      * if a payment with the same clientRequestId already exists for the user,
-     * returns the existing payment instead of creating a duplicate.
+     * returns the existing payment with HTTP 200 instead of creating a duplicate.
      * </p>
      *
      * @param request the payment initiation request containing amount, currency,
      *                walletId, clientRequestId, and provider
      * @param userId  the authenticated user's ID from the X-USER-ID header
-     * @return response containing paymentId and version for subsequent processing
+     * @return response containing paymentId and version for subsequent processing;
+     *         HTTP 201 for new payments, HTTP 200 for existing (idempotent) payments
      */
     @PostMapping
     public ResponseEntity<InitiatePaymentResponse> initiatePayment(@Valid @RequestBody InitiatePaymentRequest request,
                                                                    @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         InitiatePaymentResponse response = paymentService.initiatePayment(request, userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        HttpStatus status = response.isNewPayment() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(response);
     }
 
     /**

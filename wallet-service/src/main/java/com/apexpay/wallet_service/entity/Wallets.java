@@ -14,8 +14,10 @@ import java.util.UUID;
  * Entity representing a user's wallet.
  * <p>
  * Stores wallet balance, reserved balance (for pending payments), currency,
- * and uses optimistic locking via the version field to handle concurrent updates.
- * The reservedBalance tracks funds that are reserved for pending payment transactions.
+ * and uses optimistic locking via the version field to handle concurrent
+ * updates.
+ * The reservedBalance tracks funds that are reserved for pending payment
+ * transactions.
  * </p>
  */
 @Getter
@@ -37,7 +39,7 @@ public class Wallets {
     private UUID userId;
 
     @Column(nullable = false, length = 50)
-    private String name;
+    private String walletName;
 
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal balance;

@@ -44,6 +44,7 @@ CREATE INDEX idx_refresh_tokens_user ON userservice.refresh_tokens(user_id);
 CREATE TABLE walletservice.wallets(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
+    wallet_name VARCHAR(50) NOT NULL,
     balance DECIMAL(15,2) NOT NULL,
     reserved_balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
     currency VARCHAR(3) NOT NULL DEFAULT 'SGD',
