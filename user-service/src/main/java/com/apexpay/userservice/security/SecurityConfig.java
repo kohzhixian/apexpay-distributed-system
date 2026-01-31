@@ -67,7 +67,7 @@ public class SecurityConfig {
     }
 
     /**
-     * Exposes the AuthenticationManager as a bean for use in UserService.
+     * Exposes the AuthenticationManager as a bean for use in AuthService.
      *
      * @param config the authentication configuration
      * @return the configured AuthenticationManager
