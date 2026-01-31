@@ -1,8 +1,11 @@
 package com.apexpay.userservice.controller;
 
+import com.apexpay.common.constants.HttpHeaders;
 import com.apexpay.userservice.dto.request.LoginRequest;
 import com.apexpay.userservice.dto.request.RegisterRequest;
 import com.apexpay.userservice.dto.response.LoginResponse;
+import com.apexpay.userservice.dto.response.LogoutResponse;
+import com.apexpay.userservice.dto.response.RefreshResponse;
 import com.apexpay.userservice.dto.response.RegisterResponse;
 import com.apexpay.userservice.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,10 +14,7 @@ import jakarta.validation.Valid;
 import lombok.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * REST controller handling user authentication endpoints.
@@ -41,7 +41,7 @@ public class UserController {
      */
     @PostMapping("/register")
     public ResponseEntity<@NonNull RegisterResponse> register(@RequestBody @Valid RegisterRequest registerRequest,
-            HttpServletResponse response, HttpServletRequest request) {
+                                                              HttpServletResponse response, HttpServletRequest request) {
         RegisterResponse registerResponse = userService.register(registerRequest, response, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(registerResponse);
     }
@@ -57,14 +57,28 @@ public class UserController {
      */
     @PostMapping("/login")
     public ResponseEntity<@NonNull LoginResponse> login(@RequestBody @Valid LoginRequest loginRequest,
-            HttpServletResponse response, HttpServletRequest request) {
+                                                        HttpServletResponse response, HttpServletRequest request) {
         LoginResponse loginResponse = userService.login(loginRequest, response, request);
         return ResponseEntity.ok(loginResponse);
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<@NonNull String> refresh(HttpServletRequest request, HttpServletResponse response) {
-        userService.refresh(request, response);
-        return ResponseEntity.ok("Token refreshed successfully.");
+    public ResponseEntity<@NonNull RefreshResponse> refresh(HttpServletRequest request, HttpServletResponse response) {
+        RefreshResponse refreshResponse = userService.refresh(request, response);
+        return ResponseEntity.ok(refreshResponse);
+    }
+
+    /**
+     * Logs out the current user by revoking all refresh tokens and clearing cookies.
+     *
+     * @param userId   the authenticated user's ID from gateway
+     * @param response the HTTP response for clearing cookies
+     * @return logout confirmation with HTTP 200 status
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<@NonNull LogoutResponse> logout(@RequestHeader(HttpHeaders.X_USER_ID) String userId,
+                                                          HttpServletResponse response) {
+        LogoutResponse logoutResponse = userService.logout(userId, response);
+        return ResponseEntity.ok(logoutResponse);
     }
 }

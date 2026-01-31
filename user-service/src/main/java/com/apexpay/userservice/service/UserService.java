@@ -2,18 +2,20 @@ package com.apexpay.userservice.service;
 
 import com.apexpay.common.constants.ErrorMessages;
 import com.apexpay.common.constants.ResponseMessages;
+import com.apexpay.common.exception.BusinessException;
+import com.apexpay.common.exception.ErrorCode;
 import com.apexpay.userservice.constants.AuthConstants;
 import com.apexpay.userservice.dto.RefreshTokenCookieText;
 import com.apexpay.userservice.dto.RefreshTokenObj;
 import com.apexpay.userservice.dto.request.LoginRequest;
 import com.apexpay.userservice.dto.request.RegisterRequest;
 import com.apexpay.userservice.dto.response.LoginResponse;
+import com.apexpay.userservice.dto.response.LogoutResponse;
+import com.apexpay.userservice.dto.response.RefreshResponse;
 import com.apexpay.userservice.dto.response.RegisterResponse;
 import com.apexpay.userservice.entity.RefreshTokens;
 import com.apexpay.userservice.entity.UserPrincipal;
 import com.apexpay.userservice.entity.Users;
-import com.apexpay.common.exception.BusinessException;
-import com.apexpay.common.exception.ErrorCode;
 import com.apexpay.userservice.repository.RefreshtokenRepository;
 import com.apexpay.userservice.repository.UserRepository;
 import com.apexpay.userservice.security.JwtService;
@@ -88,7 +90,7 @@ public class UserService {
      */
     @Transactional
     public RegisterResponse register(RegisterRequest registerRequest, HttpServletResponse response,
-            HttpServletRequest request) {
+                                     HttpServletRequest request) {
         if (checkIfUsernameExist(registerRequest.username())) {
             throw new BusinessException(ErrorCode.USERNAME_EXISTS, ErrorMessages.USERNAME_ALREADY_TAKEN);
         }
@@ -141,7 +143,7 @@ public class UserService {
      * where concurrent requests could bypass token consumption checks.
      */
     @Transactional
-    public void refresh(HttpServletRequest request, HttpServletResponse response) {
+    public RefreshResponse refresh(HttpServletRequest request, HttpServletResponse response) {
         String refreshTokenCookieText = cookieUtils.getCookieValue(request, AuthConstants.COOKIE_REFRESH_TOKEN);
         String ipAddress = request.getRemoteAddr();
 
@@ -196,6 +198,32 @@ public class UserService {
 
         // Generate new access and refresh tokens
         generateAndStoreTokens(user, request, response, refreshToken.getFamilyId());
+
+        return new RefreshResponse(ResponseMessages.TOKEN_REFRESHED);
+    }
+
+    /**
+     * Logs out a user by revoking all their refresh tokens and clearing auth cookies.
+     * <p>
+     * Note: The access token remains valid until its expiry (typically 15 minutes)
+     * since JWTs are stateless. However, cookies are cleared immediately and
+     * refresh tokens are revoked, preventing session renewal.
+     * </p>
+     *
+     * @param userId   the authenticated user's ID
+     * @param response the HTTP response for clearing cookies
+     * @return logout confirmation response
+     */
+    @Transactional
+    public LogoutResponse logout(String userId, HttpServletResponse response) {
+        UUID userUuid = UUID.fromString(userId);
+        refreshtokenRepository.revokeAllRefreshTokensByUserId(userUuid);
+
+        // Clear auth cookies
+        clearAccessTokenCookie(response);
+        clearRefreshTokenCookie(response);
+
+        return new LogoutResponse(ResponseMessages.LOGOUT_SUCCESS);
     }
 
     private void storeAccessTokenIntoHeader(String accessToken, HttpServletResponse response) {
@@ -219,6 +247,28 @@ public class UserService {
                 .sameSite(AuthConstants.COOKIE_SAME_SITE_STRICT)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString());
+    }
+
+    private void clearAccessTokenCookie(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from(AuthConstants.COOKIE_ACCESS_TOKEN, "")
+                .httpOnly(true)
+                .secure(cookieSecureValue)
+                .path(AuthConstants.COOKIE_PATH_ROOT)
+                .maxAge(0)
+                .sameSite(AuthConstants.COOKIE_SAME_SITE_STRICT)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void clearRefreshTokenCookie(HttpServletResponse response) {
+        ResponseCookie cookie = ResponseCookie.from(AuthConstants.COOKIE_REFRESH_TOKEN, "")
+                .httpOnly(true)
+                .secure(cookieSecureValue)
+                .path(AuthConstants.COOKIE_PATH_REFRESH)
+                .maxAge(0)
+                .sameSite(AuthConstants.COOKIE_SAME_SITE_STRICT)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private boolean checkIfUserEmailExist(String email) {
@@ -247,7 +297,7 @@ public class UserService {
     }
 
     private void generateAndStoreTokens(Users user, HttpServletRequest request, HttpServletResponse response,
-            UUID familyId) {
+                                        UUID familyId) {
         String accessToken = jwtService.generateToken(user);
         storeAccessTokenIntoHeader(accessToken, response);
 
