@@ -126,9 +126,9 @@ public class WalletService {
         return new TopUpWalletResponse(
                 ResponseMessages.WALLET_TOPUP_SUCCESS,
                 transaction.getId(),
-                transaction.getTransactionReference(),
                 request.amount(),
-                newBalance);
+                newBalance,
+                transaction.getCreatedDate());
     }
 
     /**
