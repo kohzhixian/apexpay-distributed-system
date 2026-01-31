@@ -18,6 +18,7 @@ import com.apexpay.wallet_service.entity.Wallets;
 import com.apexpay.wallet_service.enums.ReferenceTypeEnum;
 import com.apexpay.wallet_service.enums.TransactionTypeEnum;
 import com.apexpay.wallet_service.enums.WalletTransactionStatusEnum;
+import com.apexpay.wallet_service.helper.TransactionReferenceGenerator;
 import com.apexpay.wallet_service.helper.WalletHelper;
 import com.apexpay.wallet_service.repository.WalletRepository;
 import com.apexpay.wallet_service.repository.WalletTransactionRepository;
@@ -50,14 +51,17 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final WalletHelper walletHelper;
+    private final TransactionReferenceGenerator transactionReferenceGenerator;
 
     public WalletService(
             WalletRepository walletRepository,
             WalletTransactionRepository walletTransactionRepository,
-            WalletHelper walletHelper) {
+            WalletHelper walletHelper,
+            TransactionReferenceGenerator transactionReferenceGenerator) {
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
         this.walletHelper = walletHelper;
+        this.transactionReferenceGenerator = transactionReferenceGenerator;
     }
 
     /**
@@ -98,7 +102,7 @@ public class WalletService {
      *
      * @param request the top-up request containing amount and wallet ID
      * @param userId  the authenticated user's ID
-     * @return response confirming successful top-up
+     * @return response confirming successful top-up with transaction reference
      */
     @Transactional
     @Retryable(retryFor = {
@@ -111,10 +115,20 @@ public class WalletService {
         existingWallet.setBalance(newBalance);
         walletRepository.save(existingWallet);
 
-        walletHelper.createTransaction(existingWallet, request.amount(), TransactionTypeEnum.CREDIT,
-                TransactionDescriptions.TOP_UP_WALLET, WalletTransactionStatusEnum.COMPLETED);
-        logger.info("Top up successful. WalletId: {}, Amount: {}", existingWallet.getId(), request.amount());
-        return new TopUpWalletResponse(ResponseMessages.WALLET_TOPUP_SUCCESS);
+        WalletTransactions transaction = walletHelper.createTransactionAndReturn(
+                existingWallet, request.amount(), TransactionTypeEnum.CREDIT,
+                TransactionDescriptions.TOP_UP_WALLET, ReferenceTypeEnum.TOPUP,
+                WalletTransactionStatusEnum.COMPLETED);
+
+        logger.info("Top up successful. WalletId: {}, Amount: {}, TransactionRef: {}",
+                existingWallet.getId(), request.amount(), transaction.getTransactionReference());
+
+        return new TopUpWalletResponse(
+                ResponseMessages.WALLET_TOPUP_SUCCESS,
+                transaction.getId(),
+                transaction.getTransactionReference(),
+                request.amount(),
+                newBalance);
     }
 
     /**
@@ -237,8 +251,8 @@ public class WalletService {
         return walletTransactionRepository.findAllByWalletId(walletId, pageable)
                 .stream()
                 .map(wt -> new GetTransactionHistoryResponse(
-                        wt.getId(), wt.getAmount(), wt.getTransactionType(), wt.getReferenceId(),
-                        wt.getReferenceType()))
+                        wt.getId(), wt.getTransactionReference(), wt.getAmount(),
+                        wt.getTransactionType(), wt.getReferenceId(), wt.getReferenceType()))
                 .toList();
     }
 
@@ -436,6 +450,7 @@ public class WalletService {
                 .transactionType(TransactionTypeEnum.DEBIT)
                 .amount(amount)
                 .status(WalletTransactionStatusEnum.PENDING)
+                .transactionReference(transactionReferenceGenerator.generate())
                 .build();
 
         return walletTransactionRepository.save(newWalletTransaction);

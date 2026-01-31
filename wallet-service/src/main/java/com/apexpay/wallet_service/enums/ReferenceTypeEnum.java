@@ -17,5 +17,7 @@ public enum ReferenceTypeEnum {
     /** Transaction from an administrative adjustment */
     ADMIN_ADJUSTMENT,
     /** Transaction related to a wallet-to-wallet transfer */
-    TRANSFER
+    TRANSFER,
+    /** Transaction related to a wallet top-up */
+    TOPUP
 }

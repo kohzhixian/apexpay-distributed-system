@@ -62,6 +62,7 @@ CREATE TABLE walletservice.wallet_transactions(
     transaction_type VARCHAR(7) NOT NULL, -- CREDIT or DEBIT
     reference_id VARCHAR(255),
     reference_type VARCHAR(50),
+    transaction_reference VARCHAR(20) UNIQUE, -- Human-readable reference for customer support (e.g., APX-8921-MNQ-772)
     description TEXT,
     status VARCHAR(25) NOT NULL, -- tracks the movement of balance and reserved_balance (PENDING, COMPLETED, CANCELLED)
     created_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -70,6 +71,8 @@ CREATE TABLE walletservice.wallet_transactions(
         FOREIGN KEY (wallet_id)
         REFERENCES walletservice.wallets(id)
 );
+
+CREATE INDEX idx_wallet_transactions_reference ON walletservice.wallet_transactions(transaction_reference);
 
 CREATE TABLE paymentservice.payments(
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
