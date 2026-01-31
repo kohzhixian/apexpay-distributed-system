@@ -48,3 +48,5 @@ logging:
 apexpay:
   jwt:
     public-key: classpath:keys/public.pem
+  cors:
+    allowed-origin: http://localhost:5173  # Frontend base URL

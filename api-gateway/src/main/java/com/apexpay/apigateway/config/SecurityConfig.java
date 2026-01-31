@@ -8,6 +8,11 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * WebFlux security configuration for the API Gateway.
@@ -18,6 +23,13 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
+
+    private final String allowedOrigin;
+
+    public SecurityConfig(@Value("${apexpay.cors.allowed-origin}") String allowedOrigin) {
+        this.allowedOrigin = allowedOrigin;
+    }
+
     @Bean
     public GatewayJwtFilter gatewayJwtFilter(
             @Value("${apexpay.jwt.public-key}") Resource publicKey
@@ -28,6 +40,9 @@ public class SecurityConfig {
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http, GatewayJwtFilter gatewayJwtFilter) {
         return http
+                // Enable CORS - uses corsConfigurationSource bean
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
                 // Disable CSRF - Gateway is stateless and uses JWT
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
 
@@ -46,5 +61,19 @@ public class SecurityConfig {
                 .authorizeExchange(exchanges -> exchanges.anyExchange()
                         .permitAll())
                 .build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(allowedOrigin));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }

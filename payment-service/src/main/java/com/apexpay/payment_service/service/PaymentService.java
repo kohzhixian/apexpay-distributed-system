@@ -223,19 +223,19 @@ public class PaymentService {
             }
 
             // handle failure - charge returned failed response
+            // Cancel reservation first (HTTP call commits immediately in wallet-service)
             cancelReservationSafely(walletTransactionId, userId, paymentRecord.getWalletId());
-            updatePaymentToFailure(paymentRecord, chargeResponse.failureCode(), chargeResponse.failureMessage());
-
-            throw new BusinessException(ErrorCode.PAYMENT_CHARGE_FAILED, chargeResponse.failureMessage());
+            // Update payment status and return response (no exception to avoid rollback)
+            paymentRecord = updatePaymentToFailure(paymentRecord, chargeResponse.failureCode(), chargeResponse.failureMessage());
+            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, chargeResponse.failureMessage());
         } catch (PaymentProviderException e) {
             // Handle exception - cancel reservation and update status
             if (walletTransactionId != null) {
                 cancelReservationSafely(walletTransactionId, userId, paymentRecord.getWalletId());
             }
-
-            updatePaymentToFailure(paymentRecord, e.getFailureCode(), e.getMessage());
-
-            throw new BusinessException(ErrorCode.PAYMENT_CHARGE_FAILED, e.getMessage());
+            // Update payment status and return response (no exception to avoid rollback)
+            paymentRecord = updatePaymentToFailure(paymentRecord, e.getFailureCode(), e.getMessage());
+            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, e.getMessage());
         }
     }
 
@@ -321,10 +321,10 @@ public class PaymentService {
                     logger.warn("Payment {} failed but walletTransactionId is null. Reservation cancellation skipped.",
                             paymentId);
                 }
-
+                // Update payment status and return response (no exception to avoid rollback)
                 payment = updatePaymentToFailure(payment, providerResponse.failureCode(),
                         providerResponse.failureMessage());
-                throw new BusinessException(ErrorCode.PAYMENT_CHARGE_FAILED,
+                return new PaymentResponse(payment.getId(), PaymentStatusEnum.FAILED,
                         providerResponse.failureMessage());
             }
         } catch (PaymentProviderException e) {
@@ -499,7 +499,6 @@ public class PaymentService {
      * @throws BusinessException if concurrent modification detected (version
      *                           mismatch)
      */
-    @Transactional
     private Payments updatePaymentToPendingWithExternalId(Payments payment, ProviderChargeResponse response,
                                                           UUID walletTransactionId) {
         Long currentVersion = payment.getVersion();
@@ -534,7 +533,6 @@ public class PaymentService {
      * @throws BusinessException if concurrent modification detected (version
      *                           mismatch)
      */
-    @Transactional
     private Payments updatePaymentToSuccess(Payments payment, ProviderChargeResponse response) {
         Long currentVersion = payment.getVersion();
         int updated = paymentRepository.updatePaymentSuccess(
@@ -568,7 +566,6 @@ public class PaymentService {
      * @throws BusinessException if concurrent modification detected (version
      *                           mismatch)
      */
-    @Transactional
     private Payments updatePaymentToFailure(Payments payment, ProviderFailureCode failureCode,
                                             String failureMessage) {
         Long currentVersion = payment.getVersion();
