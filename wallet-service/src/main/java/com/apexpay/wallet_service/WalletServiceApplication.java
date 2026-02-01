@@ -2,6 +2,8 @@ package com.apexpay.wallet_service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.retry.annotation.EnableRetry;
 
 /**
  * Main application class for the Wallet Service.
@@ -21,6 +23,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * </p>
  */
 @SpringBootApplication
+@EnableFeignClients
+@EnableRetry
 public class WalletServiceApplication {
 
     /**

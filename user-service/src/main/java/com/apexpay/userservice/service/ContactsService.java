@@ -6,6 +6,7 @@ import com.apexpay.userservice.dto.ContactDto;
 import com.apexpay.userservice.dto.request.AddContactRequest;
 import com.apexpay.userservice.dto.response.AddContactResponse;
 import com.apexpay.userservice.dto.response.DeleteContactResponse;
+import com.apexpay.userservice.dto.response.GetContactByEmailResponse;
 import com.apexpay.userservice.dto.response.GetContactsResponse;
 import com.apexpay.userservice.entity.Contacts;
 import com.apexpay.userservice.entity.Users;
@@ -98,5 +99,22 @@ public class ContactsService {
         contactsRepository.save(contact);
 
         return new DeleteContactResponse("Contact deleted successfully.");
+    }
+
+    @Transactional(readOnly = true)
+    public GetContactByEmailResponse getContactByRecipientEmail(String ownerId, String recipientEmail) {
+        UUID ownerUuid = UUID.fromString(ownerId);
+        
+        Contacts contact = contactsRepository
+                .findByOwnerUserIdAndContactEmailAndIsActiveTrue(ownerUuid, recipientEmail)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONTACT_NOT_FOUND,
+                        "Contact not found. Please add this recipient to your contacts first."));
+
+        return new GetContactByEmailResponse(
+                contact.getContactUser().getId(),
+                contact.getContactWalletId(),
+                contact.getContactEmail(),
+                contact.getContactUsername()
+        );
     }
 }

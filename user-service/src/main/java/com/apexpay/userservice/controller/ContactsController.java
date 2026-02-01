@@ -4,6 +4,7 @@ import com.apexpay.common.constants.HttpHeaders;
 import com.apexpay.userservice.dto.request.AddContactRequest;
 import com.apexpay.userservice.dto.response.AddContactResponse;
 import com.apexpay.userservice.dto.response.DeleteContactResponse;
+import com.apexpay.userservice.dto.response.GetContactByEmailResponse;
 import com.apexpay.userservice.dto.response.GetContactsResponse;
 import com.apexpay.userservice.service.ContactsService;
 import jakarta.validation.Valid;
@@ -46,6 +47,15 @@ public class ContactsController {
             @PathVariable UUID contactId
     ) {
         DeleteContactResponse response = contactsService.deleteContact(email, contactId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/recipient")
+    public ResponseEntity<@NonNull GetContactByEmailResponse> getContactByRecipientEmail(
+            @RequestHeader(HttpHeaders.X_USER_ID) String ownerId,
+            @RequestParam String recipientEmail
+    ) {
+        GetContactByEmailResponse response = contactsService.getContactByRecipientEmail(ownerId, recipientEmail);
         return ResponseEntity.ok(response);
     }
 }

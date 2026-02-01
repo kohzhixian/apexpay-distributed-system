@@ -9,6 +9,8 @@ import com.apexpay.common.dto.ReserveFundsRequest;
 import com.apexpay.common.dto.ReserveFundsResponse;
 import com.apexpay.common.exception.BusinessException;
 import com.apexpay.common.exception.ErrorCode;
+import com.apexpay.wallet_service.client.UserServiceClient;
+import com.apexpay.wallet_service.dto.ContactDetailsDto;
 import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
 import com.apexpay.wallet_service.dto.request.TopUpWalletRequest;
 import com.apexpay.wallet_service.dto.request.TransferRequest;
@@ -52,16 +54,19 @@ public class WalletService {
     private final WalletTransactionRepository walletTransactionRepository;
     private final WalletHelper walletHelper;
     private final TransactionReferenceGenerator transactionReferenceGenerator;
+    private final UserServiceClient userServiceClient;
 
     public WalletService(
             WalletRepository walletRepository,
             WalletTransactionRepository walletTransactionRepository,
             WalletHelper walletHelper,
-            TransactionReferenceGenerator transactionReferenceGenerator) {
+            TransactionReferenceGenerator transactionReferenceGenerator,
+            UserServiceClient userServiceClient) {
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
         this.walletHelper = walletHelper;
         this.transactionReferenceGenerator = transactionReferenceGenerator;
+        this.userServiceClient = userServiceClient;
     }
 
     /**
@@ -163,15 +168,15 @@ public class WalletService {
     @Retryable(retryFor = {
             ObjectOptimisticLockingFailureException.class}, maxAttempts = 3, backoff = @Backoff(delay = 100))
     public TransferResponse transfer(TransferRequest request, String payerUserId) {
-        walletHelper.validateNotSameWallet(request.payerWalletId(), request.receiverWalletId());
+        // Get contact details from user-service
+        ContactDetailsDto contact = userServiceClient.getContactByRecipientEmail(payerUserId, request.recipientEmail());
+        walletHelper.validateNotSameWallet(request.payerWalletId(), contact.contactWalletId());
 
         // get payer wallet
         Wallets payerWallet = walletHelper.getWalletByUserIdAndId(payerUserId, request.payerWalletId());
-
         // get receiver wallet
-        Wallets receiverWallet = walletHelper.getWalletByUserIdAndId(request.receiverUserId(),
-                request.receiverWalletId());
-
+        Wallets receiverWallet = walletHelper.getWalletByUserIdAndId(contact.contactUserId().toString(),
+                contact.contactWalletId());
         // ! TODO: Check if currency matches for both wallets
 
         // check if payer wallet has enough balance for transfer
@@ -185,7 +190,7 @@ public class WalletService {
         // add a new wallet transaction for payer wallet
         walletHelper.createTransaction(payerWallet, request.amount(), TransactionTypeEnum.DEBIT,
                 TransactionDescriptions.TRANSFER_DEBIT,
-                request.receiverWalletId().toString(), ReferenceTypeEnum.TRANSFER);
+                contact.contactWalletId().toString(), ReferenceTypeEnum.TRANSFER, WalletTransactionStatusEnum.COMPLETED);
 
         // Add amount to receiver wallet
         BigDecimal receiverBalance = receiverWallet.getBalance().add(request.amount());
@@ -195,7 +200,7 @@ public class WalletService {
         // add a new wallet transaction for receiver wallet
         walletHelper.createTransaction(receiverWallet, request.amount(), TransactionTypeEnum.CREDIT,
                 TransactionDescriptions.TRANSFER_CREDIT,
-                request.payerWalletId().toString(), ReferenceTypeEnum.TRANSFER);
+                request.payerWalletId().toString(), ReferenceTypeEnum.TRANSFER, WalletTransactionStatusEnum.COMPLETED);
 
         logger.info("Transfer successful. From: {}, To: {}, Amount: {}",
                 payerWallet.getId(), receiverWallet.getId(), request.amount());

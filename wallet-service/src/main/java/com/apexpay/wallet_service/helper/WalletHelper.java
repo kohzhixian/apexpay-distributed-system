@@ -32,8 +32,8 @@ public class WalletHelper {
     private final TransactionReferenceGenerator transactionReferenceGenerator;
 
     public WalletHelper(WalletRepository walletRepository,
-            WalletTransactionRepository walletTransactionRepository,
-            TransactionReferenceGenerator transactionReferenceGenerator) {
+                        WalletTransactionRepository walletTransactionRepository,
+                        TransactionReferenceGenerator transactionReferenceGenerator) {
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
         this.transactionReferenceGenerator = transactionReferenceGenerator;
@@ -64,7 +64,7 @@ public class WalletHelper {
      * @param walletTransactionStatus the initial status of the transaction
      */
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-            String description, WalletTransactionStatusEnum walletTransactionStatus) {
+                                  String description, WalletTransactionStatusEnum walletTransactionStatus) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
@@ -92,9 +92,9 @@ public class WalletHelper {
      * @return the saved wallet transaction entity
      */
     public WalletTransactions createTransactionAndReturn(Wallets wallet, BigDecimal amount,
-            TransactionTypeEnum transactionType,
-            String description, ReferenceTypeEnum referenceType,
-            WalletTransactionStatusEnum walletTransactionStatus) {
+                                                         TransactionTypeEnum transactionType,
+                                                         String description, ReferenceTypeEnum referenceType,
+                                                         WalletTransactionStatusEnum walletTransactionStatus) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
@@ -120,7 +120,7 @@ public class WalletHelper {
      * @param referenceType   type of the external reference
      */
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-            String description, String referenceId, ReferenceTypeEnum referenceType) {
+                                  String description, String referenceId, ReferenceTypeEnum referenceType, WalletTransactionStatusEnum status) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
@@ -129,6 +129,7 @@ public class WalletHelper {
                 .referenceId(referenceId)
                 .referenceType(referenceType)
                 .transactionReference(transactionReferenceGenerator.generate())
+                .status(status)
                 .build();
 
         walletTransactionRepository.save(newWalletTransaction);
@@ -224,7 +225,7 @@ public class WalletHelper {
      * Throws exception if in invalid state for transition.
      */
     public boolean isTransactionAlreadyInStatus(WalletTransactions transaction,
-            WalletTransactionStatusEnum targetStatus) {
+                                                WalletTransactionStatusEnum targetStatus) {
         WalletTransactionStatusEnum currentStatus = transaction.getStatus();
 
         if (currentStatus == targetStatus) {
