@@ -37,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -187,8 +188,9 @@ public class WalletService {
         payerWallet.setBalance(payerBalance);
         walletRepository.save(payerWallet);
 
-        // add a new wallet transaction for payer wallet
-        walletHelper.createTransaction(payerWallet, request.amount(), TransactionTypeEnum.DEBIT,
+        // add a new wallet transaction for payer wallet (generates its own unique reference)
+        WalletTransactions payerTransaction = walletHelper.createTransactionAndReturn(
+                payerWallet, request.amount(), TransactionTypeEnum.DEBIT,
                 TransactionDescriptions.TRANSFER_DEBIT,
                 contact.contactWalletId().toString(), ReferenceTypeEnum.TRANSFER, WalletTransactionStatusEnum.COMPLETED);
 
@@ -197,14 +199,20 @@ public class WalletService {
         receiverWallet.setBalance(receiverBalance);
         walletRepository.save(receiverWallet);
 
-        // add a new wallet transaction for receiver wallet
+        // add a new wallet transaction for receiver wallet (generates its own unique reference)
         walletHelper.createTransaction(receiverWallet, request.amount(), TransactionTypeEnum.CREDIT,
                 TransactionDescriptions.TRANSFER_CREDIT,
                 request.payerWalletId().toString(), ReferenceTypeEnum.TRANSFER, WalletTransactionStatusEnum.COMPLETED);
 
-        logger.info("Transfer successful. From: {}, To: {}, Amount: {}",
-                payerWallet.getId(), receiverWallet.getId(), request.amount());
-        return new TransferResponse(ResponseMessages.TRANSFER_SUCCESS);
+        String transactionReference = payerTransaction.getTransactionReference();
+        logger.info("Transfer successful. From: {}, To: {}, Amount: {}, Reference: {}",
+                payerWallet.getId(), receiverWallet.getId(), request.amount(), transactionReference);
+        return new TransferResponse(
+                ResponseMessages.TRANSFER_SUCCESS,
+                contact.contactUsername(),
+                transactionReference,
+                Instant.now(),
+                payerWallet.getWalletName());
     }
 
     /**

@@ -118,9 +118,32 @@ public class WalletHelper {
      * @param description     human-readable description
      * @param referenceId     external reference ID (e.g., payment ID)
      * @param referenceType   type of the external reference
+     * @param status          the transaction status
      */
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
                                   String description, String referenceId, ReferenceTypeEnum referenceType, WalletTransactionStatusEnum status) {
+        createTransaction(wallet, amount, transactionType, description, referenceId, referenceType, status,
+                transactionReferenceGenerator.generate());
+    }
+
+    /**
+     * Creates a wallet transaction with external reference and returns the saved entity.
+     * Use this when you need access to the created transaction (e.g., for returning transactionReference).
+     *
+     * @param wallet          the wallet to create transaction for
+     * @param amount          the transaction amount
+     * @param transactionType the type of transaction (CREDIT/DEBIT)
+     * @param description     human-readable description
+     * @param referenceId     external reference ID (e.g., other wallet ID, payment ID)
+     * @param referenceType   type of the external reference
+     * @param status          the transaction status
+     * @return the saved wallet transaction entity
+     */
+    public WalletTransactions createTransactionAndReturn(Wallets wallet, BigDecimal amount,
+                                                         TransactionTypeEnum transactionType,
+                                                         String description, String referenceId,
+                                                         ReferenceTypeEnum referenceType,
+                                                         WalletTransactionStatusEnum status) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
@@ -130,9 +153,49 @@ public class WalletHelper {
                 .referenceType(referenceType)
                 .transactionReference(transactionReferenceGenerator.generate())
                 .status(status)
+                .createdDate(Instant.now())
+                .build();
+
+        return walletTransactionRepository.save(newWalletTransaction);
+    }
+
+    /**
+     * Creates a wallet transaction with external reference and explicit transaction reference.
+     * Use this when multiple transactions need to share the same reference (e.g., transfers).
+     *
+     * @param wallet               the wallet to create transaction for
+     * @param amount               the transaction amount
+     * @param transactionType      the type of transaction (CREDIT/DEBIT)
+     * @param description          human-readable description
+     * @param referenceId          external reference ID (e.g., payment ID)
+     * @param referenceType        type of the external reference
+     * @param status               the transaction status
+     * @param transactionReference the transaction reference to use
+     */
+    public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
+                                  String description, String referenceId, ReferenceTypeEnum referenceType,
+                                  WalletTransactionStatusEnum status, String transactionReference) {
+        WalletTransactions newWalletTransaction = WalletTransactions.builder()
+                .wallet(wallet)
+                .amount(amount)
+                .transactionType(transactionType)
+                .description(description)
+                .referenceId(referenceId)
+                .referenceType(referenceType)
+                .transactionReference(transactionReference)
+                .status(status)
                 .build();
 
         walletTransactionRepository.save(newWalletTransaction);
+    }
+
+    /**
+     * Generates a new transaction reference.
+     *
+     * @return a unique transaction reference string
+     */
+    public String generateTransactionReference() {
+        return transactionReferenceGenerator.generate();
     }
 
     /**
