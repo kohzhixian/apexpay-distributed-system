@@ -14,16 +14,16 @@ import jakarta.validation.constraints.Size;
  * @param password the user's password (minimum 8 characters)
  */
 public record RegisterRequest(
-        @NotBlank
-        @Email
+        @NotBlank(message = ValidationMessages.EMAIL_REQUIRED)
+        @Email(message = ValidationMessages.EMAIL_INVALID)
         String email,
 
-        @NotBlank
-        @Size(min = 3, max = 20)
+        @NotBlank(message = ValidationMessages.USERNAME_REQUIRED)
+        @Size(min = 3, max = 20, message = ValidationMessages.USERNAME_LENGTH)
         @Pattern(regexp = "^[a-zA-Z0-9_]+$", message = ValidationMessages.USERNAME_PATTERN)
         String username,
 
-        @NotBlank
+        @NotBlank(message = ValidationMessages.PASSWORD_REQUIRED)
         @Size(min = 8, message = ValidationMessages.PASSWORD_MIN_LENGTH)
         String password
 ) {

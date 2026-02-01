@@ -23,9 +23,9 @@ public class GatewayRouteConfig {
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
-                // Route for User service - Auth endpoints
-                .route("user-service-auth", r -> r
-                        .path("/api/v1/auth/**", "/api/v1/user/**")
+                // Route for User service - Auth, User, and Contacts endpoints
+                .route("user-service", r -> r
+                        .path("/api/v1/auth/**", "/api/v1/user/**", "/api/v1/contacts/**")
                         .filters(f -> f
                                 .circuitBreaker(config -> config
                                         .setName("userserviceCB")
