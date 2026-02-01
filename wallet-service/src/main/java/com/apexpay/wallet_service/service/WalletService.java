@@ -212,7 +212,9 @@ public class WalletService {
                 contact.contactUsername(),
                 transactionReference,
                 Instant.now(),
-                payerWallet.getWalletName());
+                payerWallet.getWalletName(),
+                request.amount()
+        );
     }
 
     /**

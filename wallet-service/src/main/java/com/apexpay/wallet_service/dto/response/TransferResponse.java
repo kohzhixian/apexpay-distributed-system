@@ -1,5 +1,6 @@
 package com.apexpay.wallet_service.dto.response;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -12,6 +13,7 @@ public record TransferResponse(String message,
                                String payerTransactionReference,
                                Instant timestamp,
                                // payment method for transfer should be the wallet name
-                               String paymentMethod
+                               String paymentMethod,
+                               BigDecimal amount
 ) {
 }
