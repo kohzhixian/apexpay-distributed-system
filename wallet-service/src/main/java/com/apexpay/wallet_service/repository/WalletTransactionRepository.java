@@ -52,4 +52,14 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
      */
     @Query("SELECT wt FROM WalletTransactions wt WHERE wt.referenceId = :referenceId AND wt.referenceType = :referenceType")
     Optional<WalletTransactions> findByReferenceIdAndReferenceType(@Param("referenceId") String referenceId, @Param("referenceType") com.apexpay.wallet_service.enums.ReferenceTypeEnum referenceType);
+
+    /**
+     * Finds recent transactions across all wallets for a user.
+     *
+     * @param userId   the user ID to query
+     * @param pageable pagination parameters (use for limit and sort)
+     * @return list of recent transactions for the user
+     */
+    @Query("SELECT wt FROM WalletTransactions wt WHERE wt.wallet.userId = :userId")
+    List<WalletTransactions> findRecentByUserId(@Param("userId") UUID userId, Pageable pageable);
 }

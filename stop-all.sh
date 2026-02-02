@@ -33,7 +33,34 @@ for pid_file in "$LOG_DIR"/*.pid; do
 done
 
 if [ $stopped -eq 0 ]; then
-    echo -e "${YELLOW}No running services found.${NC}"
+    echo -e "${YELLOW}No running services found via PID files.${NC}"
 else
-    echo -e "${GREEN}Stopped $stopped service(s).${NC}"
+    echo -e "${GREEN}Stopped $stopped service(s) via PID files.${NC}"
 fi
+
+# Kill any processes still running on service ports
+echo -e "\n${YELLOW}Checking for processes on service ports...${NC}"
+
+PORTS=(8761 8081 8082 8083 9000)
+PORT_NAMES=("Discovery Server" "User Service" "Wallet Service" "Payment Service" "API Gateway")
+
+port_killed=0
+for i in "${!PORTS[@]}"; do
+    port=${PORTS[$i]}
+    name=${PORT_NAMES[$i]}
+    
+    pid=$(lsof -ti :$port 2>/dev/null)
+    if [ -n "$pid" ]; then
+        echo -e "Killing $name on port $port (PID: $pid)"
+        kill $pid 2>/dev/null || kill -9 $pid 2>/dev/null
+        port_killed=$((port_killed + 1))
+    fi
+done
+
+if [ $port_killed -eq 0 ]; then
+    echo -e "${GREEN}All service ports are clear.${NC}"
+else
+    echo -e "${GREEN}Killed $port_killed process(es) on service ports.${NC}"
+fi
+
+echo -e "\n${GREEN}Cleanup complete.${NC}"

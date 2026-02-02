@@ -495,4 +495,28 @@ public class WalletService {
         wallet.setReservedBalance(remainingReserveFunds);
         logger.info("{} removed from reserved funds for wallet id: {}", amount, wallet.getId());
     }
+
+    /**
+     * Retrieves the 5 most recent transactions across all wallets for a user.
+     *
+     * @param userId the authenticated user's ID
+     * @return list of recent transactions (max 5 items, newest first)
+     */
+    @Transactional(readOnly = true)
+    public List<GetRecentWalletTransactionsResponse> getRecentWalletTransactions(String userId) {
+        UUID userUuid = walletHelper.parseUserId(userId);
+        Pageable pageable = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdDate"));
+
+        return walletTransactionRepository.findRecentByUserId(userUuid, pageable)
+                .stream()
+                .map(wt -> new GetRecentWalletTransactionsResponse(
+                        wt.getId().toString(),
+                        wt.getCreatedDate(),
+                        wt.getDescription(),
+                        wt.getWallet().getWalletName(),
+                        wt.getAmount(),
+                        wt.getTransactionType() == TransactionTypeEnum.CREDIT,
+                        wt.getStatus()))
+                .toList();
+    }
 }

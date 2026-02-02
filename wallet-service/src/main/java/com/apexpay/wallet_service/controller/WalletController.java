@@ -143,4 +143,17 @@ public class WalletController {
         List<GetWalletByUserIdResponse> response = walletService.getWalletByUserId(userId);
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * Retrieves the 5 most recent transactions across all user's wallets.
+     *
+     * @param userId the authenticated user's ID from gateway
+     * @return 200 OK with list of recent transactions (max 5, newest first)
+     */
+    @GetMapping("/transactions/recent")
+    public ResponseEntity<List<GetRecentWalletTransactionsResponse>> getRecentWalletTransactions(
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        List<GetRecentWalletTransactionsResponse> response = walletService.getRecentWalletTransactions(userId);
+        return ResponseEntity.ok(response);
+    }
 }
