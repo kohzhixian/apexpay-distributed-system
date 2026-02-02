@@ -7,6 +7,7 @@ public final class ResponseMessages {
     // Wallet responses
     public static final String WALLET_CREATED = "Wallet created successfully.";
     public static final String WALLET_TOPUP_SUCCESS = "Wallet top up successfully.";
+    public static final String WALLET_NAME_UPDATED = "Wallet name updated successfully.";
     public static final String TRANSFER_SUCCESS = "Transfer made successfully.";
     public static final String RESERVATION_COMPLETED = "Wallet Reservation completed.";
     public static final String RESERVATION_ALREADY_COMPLETED = "Wallet Reservation already completed.";

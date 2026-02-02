@@ -8,6 +8,7 @@ import com.apexpay.common.dto.ReserveFundsResponse;
 import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
 import com.apexpay.wallet_service.dto.request.TopUpWalletRequest;
 import com.apexpay.wallet_service.dto.request.TransferRequest;
+import com.apexpay.wallet_service.dto.request.UpdateWalletNameRequest;
 import com.apexpay.wallet_service.dto.response.*;
 import com.apexpay.wallet_service.service.WalletService;
 import jakarta.validation.Valid;
@@ -129,6 +130,23 @@ public class WalletController {
                                                                        @PathVariable("walletId") UUID walletId,
                                                                        @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         CancelReservationResponse response = walletService.cancelReservation(request, userId, walletId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Updates the name of an existing wallet.
+     *
+     * @param walletId the wallet ID to update
+     * @param request  the request containing the new wallet name
+     * @param userId   the authenticated user's ID from gateway
+     * @return 200 OK with success message
+     */
+    @PatchMapping("/{walletId}/name")
+    public ResponseEntity<UpdateWalletNameResponse> updateWalletName(
+            @PathVariable("walletId") UUID walletId,
+            @Valid @RequestBody UpdateWalletNameRequest request,
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        UpdateWalletNameResponse response = walletService.updateWalletName(request, walletId, userId);
         return ResponseEntity.ok(response);
     }
 

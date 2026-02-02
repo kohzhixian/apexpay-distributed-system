@@ -15,6 +15,7 @@ import com.apexpay.wallet_service.dto.ContactDetailsDto;
 import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
 import com.apexpay.wallet_service.dto.request.TopUpWalletRequest;
 import com.apexpay.wallet_service.dto.request.TransferRequest;
+import com.apexpay.wallet_service.dto.request.UpdateWalletNameRequest;
 import com.apexpay.wallet_service.dto.response.*;
 import com.apexpay.wallet_service.entity.WalletTransactions;
 import com.apexpay.wallet_service.entity.Wallets;
@@ -416,6 +417,28 @@ public class WalletService {
                 walletId, transaction.getId());
 
         return new CancelReservationResponse(ResponseMessages.RESERVATION_CANCELLED);
+    }
+
+    /**
+     * Updates the name of an existing wallet.
+     *
+     * @param request  the update request containing the new wallet name
+     * @param walletId the wallet ID to update
+     * @param userId   the authenticated user's ID
+     * @return response confirming successful name update
+     */
+    @Transactional
+    public UpdateWalletNameResponse updateWalletName(UpdateWalletNameRequest request, UUID walletId, String userId) {
+        System.out.println("========== ENTERING THI FUNCTION =============");
+        Wallets existingWallet = walletHelper.getWalletByUserIdAndId(userId, walletId);
+
+        existingWallet.setWalletName(request.walletName().trim());
+        walletRepository.save(existingWallet);
+
+        logger.info("Wallet name updated. WalletId: {}, NewName: {}, UserId: {}",
+                walletId, existingWallet.getWalletName(), userId);
+
+        return new UpdateWalletNameResponse(ResponseMessages.WALLET_NAME_UPDATED);
     }
 
     /**
