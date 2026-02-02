@@ -34,6 +34,7 @@ public enum ErrorCode {
     PAYMENT_NOT_FOUND(2005, HttpStatus.NOT_FOUND, "Payment record not found"),
     WALLET_TRANSACTION_NOT_FOUND(2006, HttpStatus.NOT_FOUND, "Wallet transaction not found"),
     CONTACT_NOT_FOUND(2007, HttpStatus.NOT_FOUND, "Contact not found"),
+    PAYMENT_METHOD_NOT_FOUND(2008, HttpStatus.NOT_FOUND, "Payment method not found"),
 
     // Validation errors (3xxx)
     VALIDATION_FAILED(3001, HttpStatus.BAD_REQUEST, "Validation failed"),

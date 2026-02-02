@@ -1,6 +1,7 @@
 package com.apexpay.apigateway.controller;
 
-import lombok.NonNull;
+import com.apexpay.apigateway.constants.FallbackMessages;
+import com.apexpay.apigateway.dto.FallbackResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,9 +21,9 @@ public class FallbackController {
      * @return 503 Service Unavailable response with user-friendly message
      */
     @RequestMapping("/user-fallback")
-    public ResponseEntity<@NonNull String> userServiceFallback() {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
-                "The User Service is currently taking too long to respond or is down.");
+    public ResponseEntity<FallbackResponse> userServiceFallback() {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new FallbackResponse(FallbackMessages.USER_SERVICE_UNAVAILABLE));
     }
 
     /**
@@ -31,9 +32,9 @@ public class FallbackController {
      * @return 503 Service Unavailable response with user-friendly message
      */
     @RequestMapping("/wallet-fallback")
-    public ResponseEntity<@NonNull String> walletServiceFallback() {
+    public ResponseEntity<FallbackResponse> walletServiceFallback() {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body("The Wallet Service is currently taking too long to respond or is down.");
+                .body(new FallbackResponse(FallbackMessages.WALLET_SERVICE_UNAVAILABLE));
     }
 
     /**
@@ -42,8 +43,8 @@ public class FallbackController {
      * @return 503 Service Unavailable response with user-friendly message
      */
     @RequestMapping("/payment-fallback")
-    public ResponseEntity<@NonNull String> paymentServiceFallback() {
+    public ResponseEntity<FallbackResponse> paymentServiceFallback() {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body("The Payment Service is currently taking too long to respond or is down.");
+                .body(new FallbackResponse(FallbackMessages.PAYMENT_SERVICE_UNAVAILABLE));
     }
 }

@@ -9,6 +9,7 @@ import com.apexpay.common.dto.ReserveFundsRequest;
 import com.apexpay.common.dto.ReserveFundsResponse;
 import com.apexpay.common.exception.BusinessException;
 import com.apexpay.common.exception.ErrorCode;
+import com.apexpay.wallet_service.client.PaymentServiceClient;
 import com.apexpay.wallet_service.client.UserServiceClient;
 import com.apexpay.wallet_service.dto.ContactDetailsDto;
 import com.apexpay.wallet_service.dto.request.CreateWalletRequest;
@@ -56,18 +57,21 @@ public class WalletService {
     private final WalletHelper walletHelper;
     private final TransactionReferenceGenerator transactionReferenceGenerator;
     private final UserServiceClient userServiceClient;
+    private final PaymentServiceClient paymentServiceClient;
 
     public WalletService(
             WalletRepository walletRepository,
             WalletTransactionRepository walletTransactionRepository,
             WalletHelper walletHelper,
             TransactionReferenceGenerator transactionReferenceGenerator,
-            UserServiceClient userServiceClient) {
+            UserServiceClient userServiceClient,
+            PaymentServiceClient paymentServiceClient) {
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
         this.walletHelper = walletHelper;
         this.transactionReferenceGenerator = transactionReferenceGenerator;
         this.userServiceClient = userServiceClient;
+        this.paymentServiceClient = paymentServiceClient;
     }
 
     /**
@@ -126,8 +130,11 @@ public class WalletService {
                 TransactionDescriptions.TOP_UP_WALLET, ReferenceTypeEnum.TOPUP,
                 WalletTransactionStatusEnum.COMPLETED);
 
-        logger.info("Top up successful. WalletId: {}, Amount: {}, TransactionRef: {}",
-                existingWallet.getId(), request.amount(), transaction.getTransactionReference());
+        // Update payment method lastUsedAt for default selection
+        paymentServiceClient.markPaymentMethodAsUsed(request.paymentMethodId(), userId);
+
+        logger.info("Top up successful. WalletId: {}, Amount: {}, TransactionRef: {}, PaymentMethodId: {}",
+                existingWallet.getId(), request.amount(), transaction.getTransactionReference(), request.paymentMethodId());
 
         return new TopUpWalletResponse(
                 ResponseMessages.WALLET_TOPUP_SUCCESS,

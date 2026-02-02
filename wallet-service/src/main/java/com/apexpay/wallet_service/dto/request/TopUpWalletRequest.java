@@ -14,9 +14,10 @@ import java.util.UUID;
  * Adds funds to an existing wallet, increasing the available balance.
  * </p>
  *
- * @param amount   the amount to add to the wallet (must be positive)
- * @param walletId the wallet ID to top up
- * @param currency the currency of the top-up amount
+ * @param amount          the amount to add to the wallet (must be positive)
+ * @param walletId        the wallet ID to top up
+ * @param currency        the currency of the top-up amount
+ * @param paymentMethodId the payment method used for the top-up (updates lastUsedAt for default selection)
  */
 public record TopUpWalletRequest(
         @DecimalMin(value = ValidationMessages.DECIMAL_MIN_AMOUNT, inclusive = false, message = ValidationMessages.AMOUNT_MUST_BE_POSITIVE)
@@ -26,5 +27,8 @@ public record TopUpWalletRequest(
         @NotNull(message = ValidationMessages.WALLET_ID_REQUIRED)
         UUID walletId,
 
-        CurrencyEnum currency) {
+        CurrencyEnum currency,
+
+        @NotNull(message = ValidationMessages.PAYMENT_METHOD_ID_REQUIRED)
+        UUID paymentMethodId) {
 }

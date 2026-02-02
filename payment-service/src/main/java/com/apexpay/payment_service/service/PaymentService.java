@@ -15,6 +15,7 @@ import com.apexpay.payment_service.client.provider.exception.PaymentProviderExce
 import com.apexpay.payment_service.client.provider.interfaces.PaymentProviderClient;
 import com.apexpay.payment_service.dto.InitiatePaymentRequest;
 import com.apexpay.payment_service.dto.InitiatePaymentResponse;
+import com.apexpay.payment_service.entity.PaymentMethod;
 import com.apexpay.payment_service.entity.Payments;
 import com.apexpay.payment_service.repository.PaymentRepository;
 import com.apexpay.payment_service.repository.WalletClient;
@@ -57,6 +58,7 @@ public class PaymentService {
     private final WalletClient walletClient;
     private final PaymentRepository paymentRepository;
     private final PaymentProviderClient paymentProviderClient;
+    private final PaymentMethodService paymentMethodService;
 
     /**
      * Constructs the PaymentService with required dependencies.
@@ -64,12 +66,14 @@ public class PaymentService {
      * @param walletClient          Feign client for wallet service communication
      * @param paymentRepository     repository for payment persistence
      * @param paymentProviderClient client for external payment provider
+     * @param paymentMethodService  service for payment method operations
      */
     public PaymentService(WalletClient walletClient, PaymentRepository paymentRepository,
-                          PaymentProviderClient paymentProviderClient) {
+                          PaymentProviderClient paymentProviderClient, PaymentMethodService paymentMethodService) {
         this.walletClient = walletClient;
         this.paymentRepository = paymentRepository;
         this.paymentProviderClient = paymentProviderClient;
+        this.paymentMethodService = paymentMethodService;
     }
 
     /**
@@ -130,13 +134,14 @@ public class PaymentService {
      * <p>
      * Flow:
      * <ol>
+     * <li>Validate payment method exists and belongs to user</li>
      * <li>Acquire pessimistic lock on payment record</li>
      * <li>Validate payment exists and belongs to user</li>
      * <li>Validate payment is in INITIATED status</li>
      * <li>Reserve funds in user's wallet</li>
      * <li>Update payment status to PENDING</li>
      * <li>Charge external payment provider (with retries)</li>
-     * <li>On success: confirm reservation, update to SUCCESS</li>
+     * <li>On success: confirm reservation, update to SUCCESS, update lastUsedAt</li>
      * <li>On failure: cancel reservation, update to FAILED</li>
      * </ol>
      *
@@ -146,16 +151,21 @@ public class PaymentService {
      * in double-charging the user.
      * </p>
      *
-     * @param paymentId          the ID of the initiated payment
-     * @param userId             the authenticated user's ID
-     * @param paymentMethodToken token representing the payment method (card, etc.)
+     * @param paymentId       the ID of the initiated payment
+     * @param userId          the authenticated user's ID
+     * @param paymentMethodId the ID of the saved payment method to charge
      * @return response with payment status
      * @throws BusinessException if payment not found, unauthorized, invalid state,
      *                           or charge fails
      */
     @Transactional
-    public PaymentResponse processPayment(UUID paymentId, String userId, String paymentMethodToken) {
+    public PaymentResponse processPayment(UUID paymentId, String userId, UUID paymentMethodId) {
         UUID userUuid = UUID.fromString(userId);
+
+        // Validate payment method exists and belongs to user, get provider token
+        PaymentMethod paymentMethod = paymentMethodService.validatePaymentMethod(paymentMethodId, userId);
+        String paymentMethodToken = paymentMethod.getProviderToken();
+
         // find existing payment with pessimistic lock to prevent concurrent double-charging
         Payments paymentRecord = paymentRepository.findByIdWithLock(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, ErrorMessages.PAYMENT_NOT_FOUND));
@@ -213,6 +223,9 @@ public class PaymentService {
 
                 paymentRecord = updatePaymentToSuccess(paymentRecord, chargeResponse, walletTransactionId);
 
+                // Update lastUsedAt for the payment method (non-blocking)
+                updatePaymentMethodLastUsedSafely(paymentMethodId, userId);
+
                 return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.SUCCESS,
                         ResponseMessages.PAYMENT_SUCCEEDED);
             }
@@ -243,6 +256,21 @@ public class PaymentService {
             // Update payment status and return response (no exception to avoid rollback)
             paymentRecord = updatePaymentToFailure(paymentRecord, e.getFailureCode(), e.getMessage());
             return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, e.getMessage());
+        }
+    }
+
+    /**
+     * Safely updates the lastUsedAt timestamp for a payment method without throwing exceptions.
+     * This is a non-critical operation that shouldn't affect the payment success response.
+     *
+     * @param paymentMethodId the payment method ID to update
+     * @param userId          the user ID (for ownership verification)
+     */
+    private void updatePaymentMethodLastUsedSafely(UUID paymentMethodId, String userId) {
+        try {
+            paymentMethodService.markAsUsed(paymentMethodId, userId);
+        } catch (Exception e) {
+            logger.warn("Failed to update lastUsedAt for payment method {}: {}", paymentMethodId, e.getMessage());
         }
     }
 

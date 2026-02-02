@@ -61,14 +61,16 @@ public class PaymentController {
      * <p>
      * Executes the two-phase commit pattern:
      * <ol>
+     * <li>Validates the payment method belongs to the user</li>
      * <li>Reserves funds in the user's wallet</li>
      * <li>Charges the external payment provider</li>
      * <li>Confirms or cancels the reservation based on charge result</li>
+     * <li>Updates the payment method's lastUsedAt on success</li>
      * </ol>
      * </p>
      *
      * @param paymentId the ID of the payment to process
-     * @param request   the process payment request containing paymentMethodToken
+     * @param request   the process payment request containing paymentMethodId
      * @param userId    the authenticated user's ID from the X-USER-ID header
      * @return response with final payment status (SUCCESS, PENDING, or FAILED)
      */
@@ -76,7 +78,7 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> processPayment(@PathVariable("paymentId") UUID paymentId,
                                                           @Valid @RequestBody ProcessPaymentRequest request,
                                                           @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
-        PaymentResponse response = paymentService.processPayment(paymentId, userId, request.paymentMethodToken());
+        PaymentResponse response = paymentService.processPayment(paymentId, userId, request.paymentMethodId());
         return ResponseEntity.ok(response);
     }
 

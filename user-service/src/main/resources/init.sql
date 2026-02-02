@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS userservice.refresh_tokens;
 DROP TABLE IF EXISTS userservice.users;
 DROP TABLE IF EXISTS walletservice.wallet_transactions;
 DROP TABLE IF EXISTS walletservice.wallets;
+DROP TABLE IF EXISTS paymentservice.payment_methods;
 DROP TABLE IF EXISTS paymentservice.payments;
 
 CREATE TABLE userservice.users(
@@ -123,6 +124,29 @@ CREATE TABLE paymentservice.payments(
 
 CREATE INDEX idx_payments_provider_transaction_id ON paymentservice.payments(provider_transaction_id);
 
+CREATE TABLE paymentservice.payment_methods(
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    type VARCHAR(20) NOT NULL, -- CARD or BANK_ACCOUNT
+    provider_token VARCHAR(100) NOT NULL, -- Mock token or real provider token
+    display_name VARCHAR(100) NOT NULL, -- e.g., "Visa ending in 4242"
+    last4 VARCHAR(4) NOT NULL, -- Last 4 digits of card/account
+    -- Card-specific fields
+    brand VARCHAR(20), -- visa, mastercard, amex, etc.
+    expiry_month INTEGER, -- 1-12
+    expiry_year INTEGER, -- e.g., 2025
+    -- Bank account-specific fields
+    bank_name VARCHAR(100),
+    account_type VARCHAR(20), -- checking, savings
+    -- Tracking
+    last_used_at TIMESTAMPTZ, -- Used to determine default payment method
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_payment_methods_user_id ON paymentservice.payment_methods(user_id);
+CREATE INDEX idx_payment_methods_last_used ON paymentservice.payment_methods(user_id, last_used_at DESC);
+
 -- =============================================
 -- MOCK DATA FOR DEVELOPMENT
 -- =============================================
@@ -146,4 +170,13 @@ INSERT INTO userservice.contacts (owner_user_id, contact_user_id, contact_wallet
     ('11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', 'aaaa2222-2222-2222-2222-222222222222', 'jane@example.com', 'jane_smith'),
     ('11111111-1111-1111-1111-111111111111', '33333333-3333-3333-3333-333333333333', 'aaaa3333-3333-3333-3333-333333333333', 'bob@example.com', 'bob_wilson'),
     ('11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444', 'aaaa4444-4444-4444-4444-444444444444', 'alice@example.com', 'alice_wong');
+
+-- Mock Payment Methods (for kzx user)
+INSERT INTO paymentservice.payment_methods (id, user_id, type, provider_token, display_name, last4, brand, expiry_month, expiry_year, bank_name, account_type, last_used_at) VALUES
+    ('cccc1111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'CARD', 'tok_visa_success', 'Visa ending in 4242', '4242', 'visa', 9, 2025, NULL, NULL, NOW()),
+    ('cccc2222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'BANK_ACCOUNT', 'mock_bank_chase_9921', 'Chase Bank', '9921', NULL, NULL, NULL, 'Chase Bank', 'checking', NOW() - INTERVAL '1 day');
+
+-- Mock Payment Methods (for jane user)
+INSERT INTO paymentservice.payment_methods (id, user_id, type, provider_token, display_name, last4, brand, expiry_month, expiry_year, bank_name, account_type, last_used_at) VALUES
+    ('cccc3333-3333-3333-3333-333333333333', '22222222-2222-2222-2222-222222222222', 'CARD', 'tok_visa_success', 'Mastercard ending in 5555', '5555', 'mastercard', 12, 2026, NULL, NULL, NOW());
 

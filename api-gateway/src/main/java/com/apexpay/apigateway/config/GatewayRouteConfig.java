@@ -49,7 +49,7 @@ public class GatewayRouteConfig {
                         .uri("lb://walletservice"))
 
                 .route("payment-service", r -> r
-                        .path("/api/v1/payment/**")
+                        .path("/api/v1/payment/**", "/api/v1/payment-methods/**")
                         .filters(f -> f
                                 .circuitBreaker(config -> config
                                         .setName("paymentserviceCB")

@@ -1,19 +1,22 @@
 package com.apexpay.payment_service.dto;
 
 import com.apexpay.common.constants.ValidationMessages;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+import java.util.UUID;
 
 /**
  * Request DTO for processing a payment.
  * <p>
- * Contains the payment method token (e.g., card token from Stripe) that
- * will be charged by the payment provider.
+ * Contains the payment method ID referencing a saved payment method.
+ * The backend retrieves the provider token from the saved payment method
+ * and updates the lastUsedAt timestamp on successful payment.
  * </p>
  *
- * @param paymentMethodToken the token representing the payment method to charge
+ * @param paymentMethodId the ID of the saved payment method to charge
  */
 public record ProcessPaymentRequest(
-        @NotBlank(message = ValidationMessages.PAYMENT_METHOD_TOKEN_REQUIRED)
-        String paymentMethodToken
+        @NotNull(message = ValidationMessages.PAYMENT_METHOD_ID_REQUIRED)
+        UUID paymentMethodId
 ) {
 }
