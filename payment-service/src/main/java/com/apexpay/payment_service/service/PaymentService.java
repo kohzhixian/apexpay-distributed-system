@@ -81,8 +81,9 @@ public class PaymentService {
      *
      * <p>
      * This method is idempotent - if a payment with the same clientRequestId
-     * already exists for the user, returns the existing payment instead of creating
-     * a duplicate.
+     * already exists for the user (and is not expired), returns the existing payment
+     * instead of creating a duplicate. Expired payments are ignored, allowing users
+     * to create a new payment with the same clientRequestId.
      *
      * @param request the payment initiation request containing amount, currency,
      *                walletId, etc.
@@ -95,9 +96,9 @@ public class PaymentService {
         UUID userUuid = UUID.fromString(userId);
 
         try {
-            // Check if payment already exists
+            // Check if payment already exists (excluding expired payments to allow re-creation)
             Optional<Payments> existingPayment = paymentRepository
-                    .findByClientRequestIdAndUserId(request.clientRequestId(), userUuid);
+                    .findByClientRequestIdAndUserIdExcludingExpired(request.clientRequestId(), userUuid);
 
             if (existingPayment.isPresent()) {
                 Payments existing = existingPayment.get();
@@ -118,7 +119,7 @@ public class PaymentService {
             logger.info("Concurrent payment creation detected for clientRequestId: {}", request.clientRequestId());
 
             Payments existing = paymentRepository
-                    .findByClientRequestIdAndUserId(request.clientRequestId(), userUuid)
+                    .findByClientRequestIdAndUserIdExcludingExpired(request.clientRequestId(), userUuid)
                     .orElseThrow(() -> new BusinessException(
                             ErrorCode.INTERNAL_ERROR,
                             ErrorMessages.PAYMENT_CREATION_FAILED));

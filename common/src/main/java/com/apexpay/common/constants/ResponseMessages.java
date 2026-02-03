@@ -15,7 +15,7 @@ public final class ResponseMessages {
     public static final String RESERVATION_ALREADY_CANCELLED = "Wallet Reservation already cancelled.";
     // Payment responses
     public static final String PAYMENT_INITIATED = "Payment initiated.";
-    public static final String RETURNING_EXISTING_PAYMENT = "Returning existing payment.";
+    public static final String RETURNING_EXISTING_PAYMENT = "A payment with this clientRequestId already exists. Returning existing payment for idempotency.";
     public static final String PAYMENT_SUCCEEDED = "Payment succeeded.";
     public static final String PAYMENT_PENDING = "Payment is pending. Status will be updated once confirmed by provider.";
     // Auth responses

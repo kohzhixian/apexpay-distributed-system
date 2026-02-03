@@ -76,12 +76,21 @@ public class WalletController {
 
     /**
      * Returns a paged transaction history (10 items per page).
+     * <p>
+     * If walletId is provided, returns transactions for that specific wallet.
+     * If walletId is omitted, returns transactions for all user's wallets.
      * The offset is 1-based to align with user-facing pagination.
+     * </p>
+     *
+     * @param walletId optional wallet ID to filter transactions
+     * @param offset   page offset (1-based, defaults to 1)
+     * @param userId   the authenticated user's ID from gateway
+     * @return list of transactions (max 10 items per page)
      */
-    @GetMapping("/{walletId}/history/{offset}")
+    @GetMapping("/history")
     public ResponseEntity<List<GetTransactionHistoryResponse>> getTransactionHistory(
-            @PathVariable("walletId") UUID walletId,
-            @PathVariable("offset") int offset,
+            @RequestParam(required = false) UUID walletId,
+            @RequestParam(defaultValue = "1") int offset,
             @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
         List<GetTransactionHistoryResponse> response = walletService.getTransactionHistory(walletId, userId, offset);
         return ResponseEntity.ok(response);

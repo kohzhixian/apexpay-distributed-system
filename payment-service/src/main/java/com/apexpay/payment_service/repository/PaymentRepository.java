@@ -21,17 +21,21 @@ import java.util.UUID;
  */
 public interface PaymentRepository extends JpaRepository<Payments, UUID> {
     /**
-     * Finds a payment by client request ID and user ID.
+     * Finds a payment by client request ID and user ID, excluding expired payments.
      * <p>
      * Used for idempotency checks to prevent duplicate payment creation
-     * when the same clientRequestId is submitted multiple times.
+     * when the same clientRequestId is submitted multiple times. Expired payments
+     * are excluded to allow users to create a new payment with the same clientRequestId
+     * after their previous attempt expired.
      * </p>
      *
      * @param clientRequestId the client-provided unique request identifier
      * @param userId          the user ID who owns the payment
-     * @return optional payment if found, empty otherwise
+     * @return optional payment if found and not expired, empty otherwise
      */
-    Optional<Payments> findByClientRequestIdAndUserId(String clientRequestId, UUID userId);
+    @Query("SELECT p FROM Payments p WHERE p.clientRequestId = :clientRequestId AND p.userId = :userId AND p.status <> 'EXPIRED'")
+    Optional<Payments> findByClientRequestIdAndUserIdExcludingExpired(@Param("clientRequestId") String clientRequestId,
+                                                                       @Param("userId") UUID userId);
 
     /**
      * Finds a payment by ID with a pessimistic write lock (SELECT FOR UPDATE).

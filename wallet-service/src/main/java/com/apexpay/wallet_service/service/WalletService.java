@@ -253,29 +253,47 @@ public class WalletService {
     }
 
     /**
-     * Returns transaction history for the wallet, sorted by latest first.
+     * Returns transaction history sorted by latest first.
      * <p>
-     * Retrieves a paginated list of wallet transactions. The offset is 1-based
-     * (offset 1 = first page) and each page contains 10 items. Transactions are
-     * sorted by creation date in descending order (newest first).
+     * If walletId is provided, returns transactions for that specific wallet.
+     * If walletId is null, returns transactions for all user's wallets.
+     * The offset is 1-based (offset 1 = first page) and each page contains
+     * 10 items. Transactions are sorted by creation date descending.
      * </p>
      *
-     * @param walletId the wallet ID to query
+     * @param walletId optional wallet ID to filter (null = all wallets)
      * @param userId   the authenticated user's ID
      * @param offset   the page offset (1-based, where 1 = first page)
      * @return list of transaction history responses (max 10 items)
      */
     public List<GetTransactionHistoryResponse> getTransactionHistory(UUID walletId, String userId, int offset) {
-        // check if wallet belongs to user
-        walletHelper.getWalletByUserIdAndId(userId, walletId);
-
         int pageIndex = Math.max(offset - 1, 0);
         Pageable pageable = PageRequest.of(pageIndex, 10, Sort.by(Sort.Direction.DESC, "createdDate"));
-        return walletTransactionRepository.findAllByWalletId(walletId, pageable)
-                .stream()
+
+        List<WalletTransactions> transactions;
+        if (walletId != null) {
+            // Filter by specific wallet - validate ownership first
+            walletHelper.getWalletByUserIdAndId(userId, walletId);
+            transactions = walletTransactionRepository.findAllByWalletId(walletId, pageable);
+        } else {
+            // Get all transactions across user's wallets
+            transactions = walletTransactionRepository.findRecentByUserId(UUID.fromString(userId), pageable);
+        }
+
+        return transactions.stream()
                 .map(wt -> new GetTransactionHistoryResponse(
-                        wt.getId(), wt.getTransactionReference(), wt.getAmount(),
-                        wt.getTransactionType(), wt.getReferenceId(), wt.getReferenceType()))
+                        wt.getId(),
+                        wt.getTransactionReference(),
+                        wt.getAmount(),
+                        wt.getWallet().getCurrency().name(),
+                        wt.getTransactionType(),
+                        wt.getReferenceType(),
+                        wt.getReferenceId(),
+                        wt.getStatus(),
+                        wt.getWallet().getId(),
+                        wt.getWallet().getWalletName(),
+                        wt.getCreatedDate(),
+                        wt.getDescription()))
                 .toList();
     }
 
