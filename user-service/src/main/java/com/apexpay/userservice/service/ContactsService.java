@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -44,16 +45,8 @@ public class ContactsService {
             throw new BusinessException(ErrorCode.CANNOT_ADD_SELF_AS_CONTACT, "Cannot add yourself as a contact.");
         }
 
-        // Check if contact with same wallet already exists
-        boolean walletContactExists = contactsRepository
-                .findByOwnerUserAndContactWalletIdAndIsActiveTrue(ownerUser, request.walletId())
-                .isPresent();
-
-        if (walletContactExists) {
-            throw new BusinessException(ErrorCode.CONTACT_ALREADY_EXISTS, "This contact already exists.");
-        }
-
-        // Check if contact with same email already exists (prevents ambiguous lookups)
+        // Check if contact with same email already exists and is active (prevents
+        // ambiguous lookups)
         boolean emailContactExists = contactsRepository
                 .findByOwnerUserIdAndContactEmailAndIsActiveTrue(ownerUser.getId(), request.contactEmail())
                 .isPresent();
@@ -61,6 +54,24 @@ public class ContactsService {
         if (emailContactExists) {
             throw new BusinessException(ErrorCode.CONTACT_ALREADY_EXISTS,
                     "This person is already in your contacts.");
+        }
+
+        // Check if contact exists (active or inactive) - handles soft-delete
+        // reactivation
+        Optional<Contacts> existingContact = contactsRepository
+                .findByOwnerUserAndContactWalletId(ownerUser, request.walletId());
+
+        if (existingContact.isPresent()) {
+            Contacts contact = existingContact.get();
+            if (contact.getIsActive()) {
+                throw new BusinessException(ErrorCode.CONTACT_ALREADY_EXISTS, "This contact already exists.");
+            }
+            // Reactivate soft-deleted contact
+            contact.setIsActive(true);
+            contact.setContactEmail(contactUser.getEmail());
+            contact.setContactUsername(contactUser.getUsername());
+            contactsRepository.save(contact);
+            return new AddContactResponse(contact.getId(), "Contact added successfully.");
         }
 
         Contacts contact = Contacts.builder()
@@ -89,8 +100,7 @@ public class ContactsService {
                 .map(contact -> new ContactDto(
                         contact.getId(),
                         contact.getContactUsername(),
-                        contact.getContactEmail()
-                ))
+                        contact.getContactEmail()))
                 .toList();
 
         return new GetContactsResponse(contactDtos);
@@ -115,7 +125,7 @@ public class ContactsService {
     @Transactional(readOnly = true)
     public GetContactByEmailResponse getContactByRecipientEmail(String ownerId, String recipientEmail) {
         UUID ownerUuid = UUID.fromString(ownerId);
-        
+
         Contacts contact = contactsRepository
                 .findByOwnerUserIdAndContactEmailAndIsActiveTrue(ownerUuid, recipientEmail)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONTACT_NOT_FOUND,
@@ -125,7 +135,6 @@ public class ContactsService {
                 contact.getContactUser().getId(),
                 contact.getContactWalletId(),
                 contact.getContactEmail(),
-                contact.getContactUsername()
-        );
+                contact.getContactUsername());
     }
 }

@@ -32,8 +32,8 @@ public class WalletHelper {
     private final TransactionReferenceGenerator transactionReferenceGenerator;
 
     public WalletHelper(WalletRepository walletRepository,
-                        WalletTransactionRepository walletTransactionRepository,
-                        TransactionReferenceGenerator transactionReferenceGenerator) {
+            WalletTransactionRepository walletTransactionRepository,
+            TransactionReferenceGenerator transactionReferenceGenerator) {
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
         this.transactionReferenceGenerator = transactionReferenceGenerator;
@@ -64,7 +64,7 @@ public class WalletHelper {
      * @param walletTransactionStatus the initial status of the transaction
      */
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-                                  String description, WalletTransactionStatusEnum walletTransactionStatus) {
+            String description, WalletTransactionStatusEnum walletTransactionStatus) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
@@ -92,9 +92,9 @@ public class WalletHelper {
      * @return the saved wallet transaction entity
      */
     public WalletTransactions createTransactionAndReturn(Wallets wallet, BigDecimal amount,
-                                                         TransactionTypeEnum transactionType,
-                                                         String description, ReferenceTypeEnum referenceType,
-                                                         WalletTransactionStatusEnum walletTransactionStatus) {
+            TransactionTypeEnum transactionType,
+            String description, ReferenceTypeEnum referenceType,
+            WalletTransactionStatusEnum walletTransactionStatus) {
         return createTransactionAndReturn(wallet, amount, transactionType, description, null, referenceType,
                 walletTransactionStatus);
     }
@@ -111,29 +111,33 @@ public class WalletHelper {
      * @param status          the transaction status
      */
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-                                  String description, String referenceId, ReferenceTypeEnum referenceType, WalletTransactionStatusEnum status) {
+            String description, String referenceId, ReferenceTypeEnum referenceType,
+            WalletTransactionStatusEnum status) {
         createTransaction(wallet, amount, transactionType, description, referenceId, referenceType, status,
                 transactionReferenceGenerator.generate());
     }
 
     /**
-     * Creates a wallet transaction with external reference and returns the saved entity.
-     * Use this when you need access to the created transaction (e.g., for returning transactionReference).
+     * Creates a wallet transaction with external reference and returns the saved
+     * entity.
+     * Use this when you need access to the created transaction (e.g., for returning
+     * transactionReference).
      *
      * @param wallet          the wallet to create transaction for
      * @param amount          the transaction amount
      * @param transactionType the type of transaction (CREDIT/DEBIT)
      * @param description     human-readable description
-     * @param referenceId     external reference ID (e.g., other wallet ID, payment ID)
+     * @param referenceId     external reference ID (e.g., other wallet ID, payment
+     *                        ID)
      * @param referenceType   type of the external reference
      * @param status          the transaction status
      * @return the saved wallet transaction entity
      */
     public WalletTransactions createTransactionAndReturn(Wallets wallet, BigDecimal amount,
-                                                         TransactionTypeEnum transactionType,
-                                                         String description, String referenceId,
-                                                         ReferenceTypeEnum referenceType,
-                                                         WalletTransactionStatusEnum status) {
+            TransactionTypeEnum transactionType,
+            String description, String referenceId,
+            ReferenceTypeEnum referenceType,
+            WalletTransactionStatusEnum status) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
@@ -150,8 +154,10 @@ public class WalletHelper {
     }
 
     /**
-     * Creates a wallet transaction with external reference and explicit transaction reference.
-     * Use this when multiple transactions need to share the same reference (e.g., transfers).
+     * Creates a wallet transaction with external reference and explicit transaction
+     * reference.
+     * Use this when multiple transactions need to share the same reference (e.g.,
+     * transfers).
      *
      * @param wallet               the wallet to create transaction for
      * @param amount               the transaction amount
@@ -163,8 +169,8 @@ public class WalletHelper {
      * @param transactionReference the transaction reference to use
      */
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-                                  String description, String referenceId, ReferenceTypeEnum referenceType,
-                                  WalletTransactionStatusEnum status, String transactionReference) {
+            String description, String referenceId, ReferenceTypeEnum referenceType,
+            WalletTransactionStatusEnum status, String transactionReference) {
         WalletTransactions newWalletTransaction = WalletTransactions.builder()
                 .wallet(wallet)
                 .amount(amount)
@@ -177,15 +183,6 @@ public class WalletHelper {
                 .build();
 
         walletTransactionRepository.save(newWalletTransaction);
-    }
-
-    /**
-     * Generates a new transaction reference.
-     *
-     * @return a unique transaction reference string
-     */
-    public String generateTransactionReference() {
-        return transactionReferenceGenerator.generate();
     }
 
     /**
@@ -278,7 +275,7 @@ public class WalletHelper {
      * Throws exception if in invalid state for transition.
      */
     public boolean isTransactionAlreadyInStatus(WalletTransactions transaction,
-                                                WalletTransactionStatusEnum targetStatus) {
+            WalletTransactionStatusEnum targetStatus) {
         WalletTransactionStatusEnum currentStatus = transaction.getStatus();
 
         if (currentStatus == targetStatus) {
