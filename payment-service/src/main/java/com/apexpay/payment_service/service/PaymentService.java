@@ -228,7 +228,8 @@ public class PaymentService {
                 updatePaymentMethodLastUsedSafely(paymentMethodId, userId);
 
                 return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.SUCCESS,
-                        ResponseMessages.PAYMENT_SUCCEEDED);
+                        ResponseMessages.PAYMENT_SUCCEEDED, paymentRecord.getAmount(), paymentRecord.getCurrency(),
+                        paymentRecord.getCreatedDate(), paymentRecord.getUpdatedDate());
             }
 
             // Handle PENDING status - payment submitted but not yet confirmed
@@ -240,7 +241,8 @@ public class PaymentService {
                 logger.info("Payment {} is pending. ProviderTransactionId: {}, WalletTransactionId: {}",
                         paymentRecord.getId(), chargeResponse.providerTransactionId(), walletTransactionId);
                 return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.PENDING,
-                        ResponseMessages.PAYMENT_PENDING);
+                        ResponseMessages.PAYMENT_PENDING, paymentRecord.getAmount(), paymentRecord.getCurrency(),
+                        paymentRecord.getCreatedDate(), paymentRecord.getUpdatedDate());
             }
 
             // handle failure - charge returned failed response
@@ -248,7 +250,9 @@ public class PaymentService {
             cancelReservationSafely(walletTransactionId, userId, paymentRecord.getWalletId());
             // Update payment status and return response (no exception to avoid rollback)
             paymentRecord = updatePaymentToFailure(paymentRecord, chargeResponse.failureCode(), chargeResponse.failureMessage());
-            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, chargeResponse.failureMessage());
+            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, chargeResponse.failureMessage(),
+                    paymentRecord.getAmount(), paymentRecord.getCurrency(), paymentRecord.getCreatedDate(),
+                    paymentRecord.getUpdatedDate());
         } catch (PaymentProviderException e) {
             // Handle exception - cancel reservation and update status
             if (walletTransactionId != null) {
@@ -256,7 +260,9 @@ public class PaymentService {
             }
             // Update payment status and return response (no exception to avoid rollback)
             paymentRecord = updatePaymentToFailure(paymentRecord, e.getFailureCode(), e.getMessage());
-            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, e.getMessage());
+            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, e.getMessage(),
+                    paymentRecord.getAmount(), paymentRecord.getCurrency(), paymentRecord.getCreatedDate(),
+                    paymentRecord.getUpdatedDate());
         }
     }
 
@@ -306,7 +312,8 @@ public class PaymentService {
         // Only check status for PENDING payments
         if (payment.getStatus() != PaymentStatusEnum.PENDING) {
             return new PaymentResponse(payment.getId(), payment.getStatus(),
-                    String.format("Payment is already in %s status.", payment.getStatus()));
+                    String.format("Payment is already in %s status.", payment.getStatus()),
+                    payment.getAmount(), payment.getCurrency(), payment.getCreatedDate(), payment.getUpdatedDate());
         }
 
         // Must have provider transaction ID to query provider
@@ -345,11 +352,13 @@ public class PaymentService {
 
                 payment = updatePaymentToSuccess(payment, providerResponse, walletTxId);
                 return new PaymentResponse(payment.getId(), PaymentStatusEnum.SUCCESS,
-                        ResponseMessages.PAYMENT_SUCCEEDED);
+                        ResponseMessages.PAYMENT_SUCCEEDED, payment.getAmount(), payment.getCurrency(),
+                        payment.getCreatedDate(), payment.getUpdatedDate());
             } else if (providerResponse.status() == ProviderTransactionStatus.PENDING) {
                 // Still pending
                 return new PaymentResponse(payment.getId(), PaymentStatusEnum.PENDING,
-                        ResponseMessages.PAYMENT_PENDING);
+                        ResponseMessages.PAYMENT_PENDING, payment.getAmount(), payment.getCurrency(),
+                        payment.getCreatedDate(), payment.getUpdatedDate());
             } else {
                 // Payment failed - cancel reservation and update status
                 UUID walletTxId = payment.getWalletTransactionId();
@@ -363,7 +372,8 @@ public class PaymentService {
                 payment = updatePaymentToFailure(payment, providerResponse.failureCode(),
                         providerResponse.failureMessage());
                 return new PaymentResponse(payment.getId(), PaymentStatusEnum.FAILED,
-                        providerResponse.failureMessage());
+                        providerResponse.failureMessage(), payment.getAmount(), payment.getCurrency(),
+                        payment.getCreatedDate(), payment.getUpdatedDate());
             }
         } catch (PaymentProviderException e) {
             logger.error("Error checking payment status with provider. PaymentId: {}", paymentId, e);
