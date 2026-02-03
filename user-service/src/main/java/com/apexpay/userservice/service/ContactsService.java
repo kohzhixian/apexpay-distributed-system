@@ -44,12 +44,23 @@ public class ContactsService {
             throw new BusinessException(ErrorCode.CANNOT_ADD_SELF_AS_CONTACT, "Cannot add yourself as a contact.");
         }
 
-        boolean contactExists = contactsRepository
+        // Check if contact with same wallet already exists
+        boolean walletContactExists = contactsRepository
                 .findByOwnerUserAndContactWalletIdAndIsActiveTrue(ownerUser, request.walletId())
                 .isPresent();
 
-        if (contactExists) {
+        if (walletContactExists) {
             throw new BusinessException(ErrorCode.CONTACT_ALREADY_EXISTS, "This contact already exists.");
+        }
+
+        // Check if contact with same email already exists (prevents ambiguous lookups)
+        boolean emailContactExists = contactsRepository
+                .findByOwnerUserIdAndContactEmailAndIsActiveTrue(ownerUser.getId(), request.contactEmail())
+                .isPresent();
+
+        if (emailContactExists) {
+            throw new BusinessException(ErrorCode.CONTACT_ALREADY_EXISTS,
+                    "This person is already in your contacts.");
         }
 
         Contacts contact = Contacts.builder()

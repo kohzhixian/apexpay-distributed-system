@@ -19,7 +19,5 @@ public interface ContactsRepository extends JpaRepository<@NonNull Contacts, @No
 
     Optional<Contacts> findByIdAndOwnerUser(UUID id, Users ownerUser);
 
-    Optional<Contacts> findByOwnerUserAndContactEmailAndIsActiveTrue(Users ownerUser, String contactEmail);
-
     Optional<Contacts> findByOwnerUserIdAndContactEmailAndIsActiveTrue(UUID ownerUserId, String contactEmail);
 }

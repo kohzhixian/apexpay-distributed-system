@@ -95,18 +95,8 @@ public class WalletHelper {
                                                          TransactionTypeEnum transactionType,
                                                          String description, ReferenceTypeEnum referenceType,
                                                          WalletTransactionStatusEnum walletTransactionStatus) {
-        WalletTransactions newWalletTransaction = WalletTransactions.builder()
-                .wallet(wallet)
-                .amount(amount)
-                .status(walletTransactionStatus)
-                .transactionType(transactionType)
-                .description(description)
-                .referenceType(referenceType)
-                .transactionReference(transactionReferenceGenerator.generate())
-                .createdDate(Instant.now())
-                .build();
-
-        return walletTransactionRepository.save(newWalletTransaction);
+        return createTransactionAndReturn(wallet, amount, transactionType, description, null, referenceType,
+                walletTransactionStatus);
     }
 
     /**
