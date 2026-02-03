@@ -53,8 +53,6 @@ public class PaymentMethodService {
 
         List<PaymentMethod> paymentMethods = paymentMethodRepository.findByUserIdOrderByLastUsedAtDesc(userUuid);
 
-        System.out.println("================== PAYMENT METHODS: " + paymentMethods);
-
         // Map to response DTOs, marking the first one as default
         return mapToResponses(paymentMethods);
     }
@@ -174,8 +172,7 @@ public class PaymentMethodService {
                             pm.getBankName(),
                             pm.getAccountType(),
                             pm.getLastUsedAt(),
-                            isDefault
-                    );
+                            isDefault);
                 })
                 .toList();
     }
