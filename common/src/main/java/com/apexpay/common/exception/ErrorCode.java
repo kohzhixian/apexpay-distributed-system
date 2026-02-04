@@ -43,6 +43,7 @@ public enum ErrorCode {
     INVALID_STATUS_TRANSITION(3004, HttpStatus.BAD_REQUEST, "Invalid payment status transition"),
     INVALID_STATE(3005, HttpStatus.BAD_REQUEST, "Invalid state for this operation"),
     CANNOT_ADD_SELF_AS_CONTACT(3006, HttpStatus.BAD_REQUEST, "Cannot add yourself as a contact"),
+    CURRENCY_MISMATCH(3007, HttpStatus.BAD_REQUEST, "Currency mismatch"),
 
     // Conflict errors (4xxx)
     USERNAME_EXISTS(4001, HttpStatus.CONFLICT, "Username already exists"),

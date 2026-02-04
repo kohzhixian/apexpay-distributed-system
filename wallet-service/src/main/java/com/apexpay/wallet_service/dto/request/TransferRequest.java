@@ -36,6 +36,7 @@ public record TransferRequest(
         @NotNull(message = ValidationMessages.AMOUNT_REQUIRED)
         BigDecimal amount,
 
+        @NotNull(message = ValidationMessages.CURRENCY_REQUIRED)
         @Enumerated(EnumType.STRING)
         CurrencyEnum currency
 

@@ -11,6 +11,9 @@ import com.apexpay.wallet_service.enums.TransactionTypeEnum;
 import com.apexpay.wallet_service.enums.WalletTransactionStatusEnum;
 import com.apexpay.wallet_service.repository.WalletRepository;
 import com.apexpay.wallet_service.repository.WalletTransactionRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -26,6 +29,9 @@ import java.util.UUID;
  */
 @Component
 public class WalletHelper {
+
+    private static final Logger logger = LoggerFactory.getLogger(WalletHelper.class);
+    private static final int MAX_REFERENCE_COLLISION_RETRIES = 3;
 
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
@@ -55,29 +61,6 @@ public class WalletHelper {
     }
 
     /**
-     * Creates a wallet transaction with explicit status.
-     *
-     * @param wallet                  the wallet to create transaction for
-     * @param amount                  the transaction amount
-     * @param transactionType         the type of transaction (CREDIT/DEBIT)
-     * @param description             human-readable description
-     * @param walletTransactionStatus the initial status of the transaction
-     */
-    public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
-            String description, WalletTransactionStatusEnum walletTransactionStatus) {
-        WalletTransactions newWalletTransaction = WalletTransactions.builder()
-                .wallet(wallet)
-                .amount(amount)
-                .status(walletTransactionStatus)
-                .transactionType(transactionType)
-                .description(description)
-                .transactionReference(transactionReferenceGenerator.generate())
-                .build();
-
-        walletTransactionRepository.save(newWalletTransaction);
-    }
-
-    /**
      * Creates a wallet transaction with explicit status and returns the saved
      * entity.
      * Use this when you need access to the created transaction (e.g., for returning
@@ -101,6 +84,7 @@ public class WalletHelper {
 
     /**
      * Creates a wallet transaction with external reference.
+     * Automatically retries with a new reference if a collision occurs.
      *
      * @param wallet          the wallet to create transaction for
      * @param amount          the transaction amount
@@ -113,13 +97,13 @@ public class WalletHelper {
     public void createTransaction(Wallets wallet, BigDecimal amount, TransactionTypeEnum transactionType,
             String description, String referenceId, ReferenceTypeEnum referenceType,
             WalletTransactionStatusEnum status) {
-        createTransaction(wallet, amount, transactionType, description, referenceId, referenceType, status,
-                transactionReferenceGenerator.generate());
+        saveTransactionWithRetry(wallet, amount, transactionType, description, referenceId, referenceType, status);
     }
 
     /**
      * Creates a wallet transaction with external reference and returns the saved
      * entity.
+     * Automatically retries with a new reference if a collision occurs.
      * Use this when you need access to the created transaction (e.g., for returning
      * transactionReference).
      *
@@ -138,19 +122,51 @@ public class WalletHelper {
             String description, String referenceId,
             ReferenceTypeEnum referenceType,
             WalletTransactionStatusEnum status) {
-        WalletTransactions newWalletTransaction = WalletTransactions.builder()
-                .wallet(wallet)
-                .amount(amount)
-                .transactionType(transactionType)
-                .description(description)
-                .referenceId(referenceId)
-                .referenceType(referenceType)
-                .transactionReference(transactionReferenceGenerator.generate())
-                .status(status)
-                .createdDate(Instant.now())
-                .build();
+        return saveTransactionWithRetry(wallet, amount, transactionType, description, referenceId, referenceType,
+                status);
+    }
 
-        return walletTransactionRepository.save(newWalletTransaction);
+    /**
+     * Saves a wallet transaction with retry logic for transaction reference
+     * collisions.
+     * If a duplicate reference is generated, regenerates and retries up to
+     * MAX_REFERENCE_COLLISION_RETRIES times.
+     */
+    private WalletTransactions saveTransactionWithRetry(Wallets wallet, BigDecimal amount,
+            TransactionTypeEnum transactionType,
+            String description, String referenceId,
+            ReferenceTypeEnum referenceType,
+            WalletTransactionStatusEnum status) {
+        DataIntegrityViolationException lastException = null;
+
+        for (int attempt = 0; attempt < MAX_REFERENCE_COLLISION_RETRIES; attempt++) {
+            try {
+                WalletTransactions newWalletTransaction = WalletTransactions.builder()
+                        .wallet(wallet)
+                        .amount(amount)
+                        .transactionType(transactionType)
+                        .description(description)
+                        .referenceId(referenceId)
+                        .referenceType(referenceType)
+                        .transactionReference(transactionReferenceGenerator.generate())
+                        .status(status)
+                        .createdDate(Instant.now())
+                        .build();
+
+                return walletTransactionRepository.save(newWalletTransaction);
+            } catch (DataIntegrityViolationException e) {
+                lastException = e;
+                logger.warn("Transaction reference collision detected, retrying. Attempt: {}/{}",
+                        attempt + 1, MAX_REFERENCE_COLLISION_RETRIES);
+            }
+        }
+
+        logger.error("Failed to save transaction after {} attempts due to reference collisions",
+                MAX_REFERENCE_COLLISION_RETRIES);
+        String errorDetail = lastException != null ? lastException.getMessage() : "Unknown error";
+        throw new BusinessException(ErrorCode.INTERNAL_ERROR,
+                String.format(ErrorMessages.MAX_RETRIES_EXCEEDED_WITH_MSG,
+                        "Transaction reference collision: " + errorDetail));
     }
 
     /**
@@ -220,6 +236,33 @@ public class WalletHelper {
     public void validateNotSameWallet(UUID wallet1Id, UUID wallet2Id) {
         if (wallet1Id.equals(wallet2Id)) {
             throw new BusinessException(ErrorCode.INVALID_TRANSFER, ErrorMessages.CANNOT_TRANSFER_SAME_WALLET);
+        }
+    }
+
+    /**
+     * Validates that the specified currency matches the wallet's currency.
+     * Skips validation if currency is null.
+     *
+     * @param requestCurrency the currency specified in the request (may be null)
+     * @param wallet          the wallet to validate against
+     * @throws BusinessException if currencies don't match
+     */
+    public void validateCurrencyMatchesWallet(CurrencyEnum requestCurrency, Wallets wallet) {
+        if (requestCurrency != null && requestCurrency != wallet.getCurrency()) {
+            throw new BusinessException(ErrorCode.CURRENCY_MISMATCH, ErrorMessages.CURRENCY_MISMATCH_REQUEST);
+        }
+    }
+
+    /**
+     * Validates that two wallets have the same currency.
+     *
+     * @param wallet1 first wallet
+     * @param wallet2 second wallet
+     * @throws BusinessException if currencies don't match
+     */
+    public void validateSameCurrency(Wallets wallet1, Wallets wallet2) {
+        if (wallet1.getCurrency() != wallet2.getCurrency()) {
+            throw new BusinessException(ErrorCode.CURRENCY_MISMATCH, ErrorMessages.CURRENCY_MISMATCH_WALLETS);
         }
     }
 

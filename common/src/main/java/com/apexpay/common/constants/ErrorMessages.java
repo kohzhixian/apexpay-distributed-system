@@ -26,6 +26,8 @@ public final class ErrorMessages {
     public static final String WALLET_ACCESS_DENIED = "Wallet does not belong to user.";
     public static final String INSUFFICIENT_BALANCE = "Insufficient balance.";
     public static final String CANNOT_TRANSFER_SAME_WALLET = "Cannot transfer to the same wallet.";
+    public static final String CURRENCY_MISMATCH_REQUEST = "Specified currency does not match wallet currency.";
+    public static final String CURRENCY_MISMATCH_WALLETS = "Cross-currency transfers are not supported. Payer and receiver wallets must have the same currency.";
     public static final String USER_ID_REQUIRED = "User id is required.";
     public static final String INVALID_USER_ID_FORMAT = "Invalid User id format.";
     public static final String INVALID_WALLET_TRANSACTION_ID = "Invalid Wallet transaction id.";

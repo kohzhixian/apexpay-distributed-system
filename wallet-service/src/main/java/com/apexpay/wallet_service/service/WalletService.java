@@ -28,6 +28,7 @@ import com.apexpay.wallet_service.repository.WalletRepository;
 import com.apexpay.wallet_service.repository.WalletTransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -192,6 +193,11 @@ public class WalletService {
                 // get receiver wallet
                 Wallets receiverWallet = walletHelper.getWalletByUserIdAndId(contact.contactUserId().toString(),
                                 contact.contactWalletId());
+
+                // validate currency if provided in request
+                walletHelper.validateCurrencyMatchesWallet(request.currency(), payerWallet);
+                // validate payer and receiver wallets have the same currency
+                walletHelper.validateSameCurrency(payerWallet, receiverWallet);
 
                 // check if payer wallet has enough balance for transfer
                 walletHelper.validateSufficientBalance(payerWallet, request.amount());
@@ -520,19 +526,38 @@ public class WalletService {
                 throw new BusinessException(ErrorCode.RESERVATION_FAILURE, ErrorMessages.RESERVATION_FAILURE);
         }
 
-        private WalletTransactions createPendingTransaction(Wallets wallet, BigDecimal amount, UUID paymentId) {
-                WalletTransactions newWalletTransaction = WalletTransactions.builder()
-                                .wallet(wallet)
-                                .referenceId(paymentId.toString())
-                                .referenceType(ReferenceTypeEnum.PAYMENT)
-                                .description(TransactionDescriptions.RESERVE_FUNDS)
-                                .transactionType(TransactionTypeEnum.DEBIT)
-                                .amount(amount)
-                                .status(WalletTransactionStatusEnum.PENDING)
-                                .transactionReference(transactionReferenceGenerator.generate())
-                                .build();
+        private static final int MAX_REFERENCE_COLLISION_RETRIES = 3;
 
-                return walletTransactionRepository.save(newWalletTransaction);
+        private WalletTransactions createPendingTransaction(Wallets wallet, BigDecimal amount, UUID paymentId) {
+                DataIntegrityViolationException lastException = null;
+
+                for (int attempt = 0; attempt < MAX_REFERENCE_COLLISION_RETRIES; attempt++) {
+                        try {
+                                WalletTransactions newWalletTransaction = WalletTransactions.builder()
+                                                .wallet(wallet)
+                                                .referenceId(paymentId.toString())
+                                                .referenceType(ReferenceTypeEnum.PAYMENT)
+                                                .description(TransactionDescriptions.RESERVE_FUNDS)
+                                                .transactionType(TransactionTypeEnum.DEBIT)
+                                                .amount(amount)
+                                                .status(WalletTransactionStatusEnum.PENDING)
+                                                .transactionReference(transactionReferenceGenerator.generate())
+                                                .build();
+
+                                return walletTransactionRepository.save(newWalletTransaction);
+                        } catch (DataIntegrityViolationException e) {
+                                lastException = e;
+                                logger.warn("Transaction reference collision in createPendingTransaction, retrying. Attempt: {}/{}",
+                                                attempt + 1, MAX_REFERENCE_COLLISION_RETRIES);
+                        }
+                }
+
+                logger.error("Failed to create pending transaction after {} attempts due to reference collisions",
+                                MAX_REFERENCE_COLLISION_RETRIES);
+                String errorDetail = lastException != null ? lastException.getMessage() : "Unknown error";
+                throw new BusinessException(ErrorCode.INTERNAL_ERROR,
+                                String.format(ErrorMessages.MAX_RETRIES_EXCEEDED_WITH_MSG,
+                                                "Transaction reference collision: " + errorDetail));
         }
 
         private void removeReserveFunds(Wallets wallet, BigDecimal amount) {
