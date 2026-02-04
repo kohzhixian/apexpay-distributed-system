@@ -105,18 +105,7 @@ public class PaymentService {
 
                 // If payment is expired, reuse it by resetting fields
                 if (existing.getStatus() == PaymentStatusEnum.EXPIRED) {
-                    logger.info("Reusing expired payment. ClientRequestId: {}, PaymentId: {}",
-                            request.clientRequestId(), existing.getId());
-                    existing.setStatus(PaymentStatusEnum.INITIATED);
-                    existing.setAmount(request.amount());
-                    existing.setCurrency(request.currency());
-                    existing.setWalletId(request.walletId());
-                    existing.setProviderTransactionId(null);
-                    existing.setProvider(null);
-                    existing.setWalletTransactionId(null);
-                    existing.setFailureCode(null);
-                    existing.setFailureMessage(null);
-                    Payments reusedPayment = paymentRepository.save(existing);
+                    Payments reusedPayment = resetExpiredPayment(existing, request);
                     return new InitiatePaymentResponse(ResponseMessages.PAYMENT_INITIATED, reusedPayment.getId(),
                             reusedPayment.getVersion(), true);
                 }
@@ -146,16 +135,7 @@ public class PaymentService {
 
             // Handle race condition with expired payment
             if (existing.getStatus() == PaymentStatusEnum.EXPIRED) {
-                existing.setStatus(PaymentStatusEnum.INITIATED);
-                existing.setAmount(request.amount());
-                existing.setCurrency(request.currency());
-                existing.setWalletId(request.walletId());
-                existing.setProviderTransactionId(null);
-                existing.setProvider(null);
-                existing.setWalletTransactionId(null);
-                existing.setFailureCode(null);
-                existing.setFailureMessage(null);
-                Payments reusedPayment = paymentRepository.save(existing);
+                Payments reusedPayment = resetExpiredPayment(existing, request);
                 return new InitiatePaymentResponse(ResponseMessages.PAYMENT_INITIATED, reusedPayment.getId(),
                         reusedPayment.getVersion(), true);
             }
@@ -565,6 +545,29 @@ public class PaymentService {
                 .build();
 
         return paymentRepository.save(newPayment);
+    }
+
+    /**
+     * Resets an expired payment for reuse with new request data.
+     * Clears all provider-related fields and resets status to INITIATED.
+     *
+     * @param existing the expired payment to reset
+     * @param request  the new payment request with updated data
+     * @return the saved payment entity
+     */
+    private Payments resetExpiredPayment(Payments existing, InitiatePaymentRequest request) {
+        logger.info("Reusing expired payment. ClientRequestId: {}, PaymentId: {}",
+                request.clientRequestId(), existing.getId());
+        existing.setStatus(PaymentStatusEnum.INITIATED);
+        existing.setAmount(request.amount());
+        existing.setCurrency(request.currency());
+        existing.setWalletId(request.walletId());
+        existing.setProviderTransactionId(null);
+        existing.setProvider(null);
+        existing.setWalletTransactionId(null);
+        existing.setFailureCode(null);
+        existing.setFailureMessage(null);
+        return paymentRepository.save(existing);
     }
 
     /**
