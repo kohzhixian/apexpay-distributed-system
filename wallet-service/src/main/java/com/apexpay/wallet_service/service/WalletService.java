@@ -22,13 +22,11 @@ import com.apexpay.wallet_service.entity.Wallets;
 import com.apexpay.wallet_service.enums.ReferenceTypeEnum;
 import com.apexpay.wallet_service.enums.TransactionTypeEnum;
 import com.apexpay.wallet_service.enums.WalletTransactionStatusEnum;
-import com.apexpay.wallet_service.helper.TransactionReferenceGenerator;
 import com.apexpay.wallet_service.helper.WalletHelper;
 import com.apexpay.wallet_service.repository.WalletRepository;
 import com.apexpay.wallet_service.repository.WalletTransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -57,7 +55,6 @@ public class WalletService {
         private final WalletRepository walletRepository;
         private final WalletTransactionRepository walletTransactionRepository;
         private final WalletHelper walletHelper;
-        private final TransactionReferenceGenerator transactionReferenceGenerator;
         private final UserServiceClient userServiceClient;
         private final PaymentServiceClient paymentServiceClient;
 
@@ -65,13 +62,11 @@ public class WalletService {
                         WalletRepository walletRepository,
                         WalletTransactionRepository walletTransactionRepository,
                         WalletHelper walletHelper,
-                        TransactionReferenceGenerator transactionReferenceGenerator,
                         UserServiceClient userServiceClient,
                         PaymentServiceClient paymentServiceClient) {
                 this.walletRepository = walletRepository;
                 this.walletTransactionRepository = walletTransactionRepository;
                 this.walletHelper = walletHelper;
-                this.transactionReferenceGenerator = transactionReferenceGenerator;
                 this.userServiceClient = userServiceClient;
                 this.paymentServiceClient = paymentServiceClient;
         }
@@ -359,8 +354,14 @@ public class WalletService {
                 }
 
                 // create pending transaction
-                WalletTransactions newWalletTransaction = createPendingTransaction(existingWallet, request.amount(),
-                                request.paymentId());
+                WalletTransactions newWalletTransaction = walletHelper.createTransactionAndReturn(
+                                existingWallet,
+                                request.amount(),
+                                TransactionTypeEnum.DEBIT,
+                                TransactionDescriptions.RESERVE_FUNDS,
+                                request.paymentId().toString(),
+                                ReferenceTypeEnum.PAYMENT,
+                                WalletTransactionStatusEnum.PENDING);
 
                 logger.info("Funds reserved. WalletId: {}, Amount: {}, TransactionId: {}",
                                 existingWallet.getId(), request.amount(), newWalletTransaction.getId());
@@ -524,40 +525,6 @@ public class WalletService {
                 // Unknown reason
                 logger.error("Unknown reservation failure. WalletId: {}, Amount: {}", walletId, amount);
                 throw new BusinessException(ErrorCode.RESERVATION_FAILURE, ErrorMessages.RESERVATION_FAILURE);
-        }
-
-        private static final int MAX_REFERENCE_COLLISION_RETRIES = 3;
-
-        private WalletTransactions createPendingTransaction(Wallets wallet, BigDecimal amount, UUID paymentId) {
-                DataIntegrityViolationException lastException = null;
-
-                for (int attempt = 0; attempt < MAX_REFERENCE_COLLISION_RETRIES; attempt++) {
-                        try {
-                                WalletTransactions newWalletTransaction = WalletTransactions.builder()
-                                                .wallet(wallet)
-                                                .referenceId(paymentId.toString())
-                                                .referenceType(ReferenceTypeEnum.PAYMENT)
-                                                .description(TransactionDescriptions.RESERVE_FUNDS)
-                                                .transactionType(TransactionTypeEnum.DEBIT)
-                                                .amount(amount)
-                                                .status(WalletTransactionStatusEnum.PENDING)
-                                                .transactionReference(transactionReferenceGenerator.generate())
-                                                .build();
-
-                                return walletTransactionRepository.save(newWalletTransaction);
-                        } catch (DataIntegrityViolationException e) {
-                                lastException = e;
-                                logger.warn("Transaction reference collision in createPendingTransaction, retrying. Attempt: {}/{}",
-                                                attempt + 1, MAX_REFERENCE_COLLISION_RETRIES);
-                        }
-                }
-
-                logger.error("Failed to create pending transaction after {} attempts due to reference collisions",
-                                MAX_REFERENCE_COLLISION_RETRIES);
-                String errorDetail = lastException != null ? lastException.getMessage() : "Unknown error";
-                throw new BusinessException(ErrorCode.INTERNAL_ERROR,
-                                String.format(ErrorMessages.MAX_RETRIES_EXCEEDED_WITH_MSG,
-                                                "Transaction reference collision: " + errorDetail));
         }
 
         private void removeReserveFunds(Wallets wallet, BigDecimal amount) {

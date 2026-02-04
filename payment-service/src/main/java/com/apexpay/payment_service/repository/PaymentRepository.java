@@ -38,6 +38,17 @@ public interface PaymentRepository extends JpaRepository<Payments, UUID> {
                                                                        @Param("userId") UUID userId);
 
     /**
+     * Finds a payment by client request ID and user ID, including all statuses.
+     * Used to detect expired payments that need to be reused when user retries
+     * with the same clientRequestId.
+     *
+     * @param clientRequestId the client-provided unique request identifier
+     * @param userId          the user ID who owns the payment
+     * @return optional payment if found, empty otherwise
+     */
+    Optional<Payments> findByClientRequestIdAndUserId(String clientRequestId, UUID userId);
+
+    /**
      * Finds a payment by ID with a pessimistic write lock (SELECT FOR UPDATE).
      * <p>
      * Acquires a row-level database lock to prevent concurrent modifications.

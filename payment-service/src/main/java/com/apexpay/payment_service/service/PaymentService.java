@@ -96,12 +96,32 @@ public class PaymentService {
         UUID userUuid = UUID.fromString(userId);
 
         try {
-            // Check if payment already exists (excluding expired payments to allow re-creation)
+            // Check if payment already exists (including expired to handle reuse)
             Optional<Payments> existingPayment = paymentRepository
-                    .findByClientRequestIdAndUserIdExcludingExpired(request.clientRequestId(), userUuid);
+                    .findByClientRequestIdAndUserId(request.clientRequestId(), userUuid);
 
             if (existingPayment.isPresent()) {
                 Payments existing = existingPayment.get();
+
+                // If payment is expired, reuse it by resetting fields
+                if (existing.getStatus() == PaymentStatusEnum.EXPIRED) {
+                    logger.info("Reusing expired payment. ClientRequestId: {}, PaymentId: {}",
+                            request.clientRequestId(), existing.getId());
+                    existing.setStatus(PaymentStatusEnum.INITIATED);
+                    existing.setAmount(request.amount());
+                    existing.setCurrency(request.currency());
+                    existing.setWalletId(request.walletId());
+                    existing.setProviderTransactionId(null);
+                    existing.setProvider(null);
+                    existing.setWalletTransactionId(null);
+                    existing.setFailureCode(null);
+                    existing.setFailureMessage(null);
+                    Payments reusedPayment = paymentRepository.save(existing);
+                    return new InitiatePaymentResponse(ResponseMessages.PAYMENT_INITIATED, reusedPayment.getId(),
+                            reusedPayment.getVersion(), true);
+                }
+
+                // Non-expired payment exists - return it (idempotency)
                 logger.info("Duplicate payment request detected. ClientRequestId: {}, PaymentId: {}",
                         request.clientRequestId(), existing.getId());
                 return new InitiatePaymentResponse(ResponseMessages.RETURNING_EXISTING_PAYMENT, existing.getId(),
@@ -119,10 +139,26 @@ public class PaymentService {
             logger.info("Concurrent payment creation detected for clientRequestId: {}", request.clientRequestId());
 
             Payments existing = paymentRepository
-                    .findByClientRequestIdAndUserIdExcludingExpired(request.clientRequestId(), userUuid)
+                    .findByClientRequestIdAndUserId(request.clientRequestId(), userUuid)
                     .orElseThrow(() -> new BusinessException(
                             ErrorCode.INTERNAL_ERROR,
                             ErrorMessages.PAYMENT_CREATION_FAILED));
+
+            // Handle race condition with expired payment
+            if (existing.getStatus() == PaymentStatusEnum.EXPIRED) {
+                existing.setStatus(PaymentStatusEnum.INITIATED);
+                existing.setAmount(request.amount());
+                existing.setCurrency(request.currency());
+                existing.setWalletId(request.walletId());
+                existing.setProviderTransactionId(null);
+                existing.setProvider(null);
+                existing.setWalletTransactionId(null);
+                existing.setFailureCode(null);
+                existing.setFailureMessage(null);
+                Payments reusedPayment = paymentRepository.save(existing);
+                return new InitiatePaymentResponse(ResponseMessages.PAYMENT_INITIATED, reusedPayment.getId(),
+                        reusedPayment.getVersion(), true);
+            }
 
             return new InitiatePaymentResponse(ResponseMessages.RETURNING_EXISTING_PAYMENT, existing.getId(),
                     existing.getVersion(), false);

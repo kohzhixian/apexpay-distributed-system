@@ -68,6 +68,7 @@ public class ContactsService {
             }
             // Reactivate soft-deleted contact
             contact.setIsActive(true);
+            contact.setContactUser(contactUser);
             contact.setContactEmail(contactUser.getEmail());
             contact.setContactUsername(contactUser.getUsername());
             contactsRepository.save(contact);
