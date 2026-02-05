@@ -14,6 +14,17 @@ import reactor.core.publisher.Mono;
  */
 public class ManagedAuthenticationEntryPoint implements ServerAuthenticationEntryPoint {
 
+    /**
+     * Handles authentication failures by propagating the exception to the global error handler.
+     * <p>
+     * Instead of returning a direct response, delegates to {@link GlobalErrorWebExceptionHandler}
+     * for consistent error formatting across the gateway.
+     * </p>
+     *
+     * @param exchange the current server web exchange
+     * @param ex       the authentication exception that occurred
+     * @return a Mono that errors with the authentication exception
+     */
     @Override
     @NullMarked
     public Mono<Void> commence(ServerWebExchange exchange, AuthenticationException ex) {

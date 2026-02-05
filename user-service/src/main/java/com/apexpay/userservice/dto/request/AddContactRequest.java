@@ -7,6 +7,12 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
 
+/**
+ * Request DTO for adding a new contact.
+ *
+ * @param contactEmail the email address of the contact to add
+ * @param walletId     the wallet ID of the contact (for transfers)
+ */
 public record AddContactRequest(
         @NotBlank(message = ValidationMessages.CONTACT_EMAIL_REQUIRED)
         @Email(message = ValidationMessages.CONTACT_EMAIL_INVALID)

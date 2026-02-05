@@ -35,13 +35,16 @@ public class WalletHelper {
 
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final WalletTransactionSaver walletTransactionSaver;
     private final TransactionReferenceGenerator transactionReferenceGenerator;
 
     public WalletHelper(WalletRepository walletRepository,
             WalletTransactionRepository walletTransactionRepository,
+            WalletTransactionSaver walletTransactionSaver,
             TransactionReferenceGenerator transactionReferenceGenerator) {
         this.walletRepository = walletRepository;
         this.walletTransactionRepository = walletTransactionRepository;
+        this.walletTransactionSaver = walletTransactionSaver;
         this.transactionReferenceGenerator = transactionReferenceGenerator;
     }
 
@@ -129,8 +132,18 @@ public class WalletHelper {
     /**
      * Saves a wallet transaction with retry logic for transaction reference
      * collisions.
-     * If a duplicate reference is generated, regenerates and retries up to
-     * MAX_REFERENCE_COLLISION_RETRIES times.
+     * <p>
+     * If a duplicate reference is generated (DataIntegrityViolationException),
+     * regenerates and retries up to MAX_REFERENCE_COLLISION_RETRIES times.
+     * </p>
+     * <p>
+     * Uses {@link WalletTransactionSaver#saveInNewTransaction} which runs in a
+     * separate transaction (REQUIRES_NEW). This is critical because when a
+     * DataIntegrityViolationException occurs, the Hibernate Session becomes
+     * corrupted and marked for rollback. By saving in a new transaction, each
+     * retry attempt gets a fresh Session, allowing the retry logic to work
+     * correctly even when called from @Transactional methods.
+     * </p>
      */
     private WalletTransactions saveTransactionWithRetry(Wallets wallet, BigDecimal amount,
             TransactionTypeEnum transactionType,
@@ -153,7 +166,9 @@ public class WalletHelper {
                         .createdDate(Instant.now())
                         .build();
 
-                return walletTransactionRepository.save(newWalletTransaction);
+                // Save in a new transaction to avoid corrupting the parent transaction's
+                // Hibernate Session on DataIntegrityViolationException
+                return walletTransactionSaver.saveInNewTransaction(newWalletTransaction);
             } catch (DataIntegrityViolationException e) {
                 lastException = e;
                 logger.warn("Transaction reference collision detected, retrying. Attempt: {}/{}",

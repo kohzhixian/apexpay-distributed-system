@@ -21,6 +21,11 @@ import java.util.UUID;
 public class PaymentMethodController {
     private final PaymentMethodService paymentMethodService;
 
+    /**
+     * Constructs a new PaymentMethodController with the required service.
+     *
+     * @param paymentMethodService the service for payment method operations
+     */
     public PaymentMethodController(PaymentMethodService paymentMethodService) {
         this.paymentMethodService = paymentMethodService;
     }

@@ -19,16 +19,41 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Service for managing user contacts.
+ * <p>
+ * Handles contact creation, retrieval, and soft-deletion.
+ * Supports soft-delete reactivation for previously deleted contacts.
+ * </p>
+ */
 @Service
 public class ContactsService {
     private final ContactsRepository contactsRepository;
     private final UserRepository userRepository;
 
+    /**
+     * Constructs a new ContactsService with the required repositories.
+     *
+     * @param contactsRepository the repository for contact operations
+     * @param userRepository     the repository for user lookups
+     */
     public ContactsService(ContactsRepository contactsRepository, UserRepository userRepository) {
         this.contactsRepository = contactsRepository;
         this.userRepository = userRepository;
     }
 
+    /**
+     * Adds a new contact for the specified user.
+     * <p>
+     * If a soft-deleted contact with the same wallet ID exists, it will be reactivated.
+     * Prevents users from adding themselves as contacts.
+     * </p>
+     *
+     * @param ownerEmail the email of the user adding the contact
+     * @param request    the contact details including email and wallet ID
+     * @return response with the contact ID and success message
+     * @throws BusinessException if user not found, contact already exists, or adding self
+     */
     @Transactional
     public AddContactResponse addContact(String ownerEmail, AddContactRequest request) {
         Users ownerUser = userRepository.findByEmail(ownerEmail);
@@ -88,6 +113,13 @@ public class ContactsService {
         return new AddContactResponse(savedContact.getId(), "Contact added successfully.");
     }
 
+    /**
+     * Retrieves all active contacts for the specified user.
+     *
+     * @param ownerEmail the email of the user whose contacts to retrieve
+     * @return response containing list of active contacts
+     * @throws BusinessException if user not found
+     */
     @Transactional(readOnly = true)
     public GetContactsResponse getContacts(String ownerEmail) {
         Users ownerUser = userRepository.findByEmail(ownerEmail);
@@ -107,6 +139,14 @@ public class ContactsService {
         return new GetContactsResponse(contactDtos);
     }
 
+    /**
+     * Soft-deletes a contact by setting its active status to false.
+     *
+     * @param ownerEmail the email of the user who owns the contact
+     * @param contactId  the ID of the contact to delete
+     * @return response with success message
+     * @throws BusinessException if user or contact not found
+     */
     @Transactional
     public DeleteContactResponse deleteContact(String ownerEmail, UUID contactId) {
         Users ownerUser = userRepository.findByEmail(ownerEmail);
@@ -123,6 +163,17 @@ public class ContactsService {
         return new DeleteContactResponse("Contact deleted successfully.");
     }
 
+    /**
+     * Retrieves a contact by the recipient's email address.
+     * <p>
+     * Used for wallet transfers to lookup contact details by email.
+     * </p>
+     *
+     * @param ownerId        the ID of the user who owns the contact
+     * @param recipientEmail the email address of the contact to find
+     * @return response with contact user ID, wallet ID, email, and username
+     * @throws BusinessException if contact not found
+     */
     @Transactional(readOnly = true)
     public GetContactByEmailResponse getContactByRecipientEmail(String ownerId, String recipientEmail) {
         UUID ownerUuid = UUID.fromString(ownerId);

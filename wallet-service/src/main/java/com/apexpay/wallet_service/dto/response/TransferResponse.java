@@ -6,7 +6,12 @@ import java.time.Instant;
 /**
  * Response DTO for wallet transfer operations.
  *
- * @param message a success message confirming the transfer
+ * @param message                   a success message confirming the transfer
+ * @param recipientName             the username of the transfer recipient
+ * @param payerTransactionReference the transaction reference for the payer's records
+ * @param timestamp                 the timestamp when the transfer was processed
+ * @param paymentMethod             the wallet name used for the transfer
+ * @param amount                    the amount transferred
  */
 public record TransferResponse(String message,
                                String recipientName,

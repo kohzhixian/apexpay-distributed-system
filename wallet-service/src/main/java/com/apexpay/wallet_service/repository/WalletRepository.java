@@ -25,6 +25,20 @@ public interface WalletRepository extends JpaRepository<Wallets, UUID> {
     @Query("SELECT w FROM Wallets w WHERE w.id = :id AND w.userId = :userId")
     Optional<Wallets> findWalletByUserIdAndId(@Param("userId") UUID userId, @Param("id") UUID id);
 
+    /**
+     * Atomically reserves funds in a wallet using optimistic locking.
+     * <p>
+     * Uses version checking to prevent concurrent modifications.
+     * Only succeeds if the wallet has sufficient available balance
+     * (balance - reservedBalance >= amount).
+     * </p>
+     *
+     * @param amount         the amount to reserve
+     * @param walletId       the wallet ID
+     * @param userId         the user ID (for ownership verification)
+     * @param currentVersion the expected version for optimistic locking
+     * @return 1 if reservation succeeded, 0 if failed (version mismatch or insufficient funds)
+     */
     @Modifying
     @Query("UPDATE Wallets w " +
             "SET w.reservedBalance = w.reservedBalance + :amount, " +
@@ -33,12 +47,17 @@ public interface WalletRepository extends JpaRepository<Wallets, UUID> {
             "AND w.userId = :userId " +
             "AND w.version = :currentVersion " +
             "AND (w.balance - w.reservedBalance) >= :amount")
-        // returns 1 if succeed and 0 if failed
     int tryReserveFunds(
             @Param("amount") BigDecimal amount,
             @Param("walletId") UUID walletId,
             @Param("userId") UUID userId,
             @Param("currentVersion") Long currentVersion);
 
+    /**
+     * Finds all wallets belonging to a specific user.
+     *
+     * @param userId the user ID
+     * @return list of wallets owned by the user
+     */
     List<Wallets> findByUserId(UUID userId);
 }

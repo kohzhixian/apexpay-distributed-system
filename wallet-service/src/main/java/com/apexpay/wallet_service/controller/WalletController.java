@@ -30,12 +30,21 @@ import java.util.UUID;
 public class WalletController {
     private final WalletService walletService;
 
+    /**
+     * Constructs a new WalletController with the required service.
+     *
+     * @param walletService the wallet service for business logic
+     */
     public WalletController(WalletService walletService) {
         this.walletService = walletService;
     }
 
     /**
      * Creates a new wallet for the authenticated user.
+     *
+     * @param request the wallet creation request with name and currency
+     * @param userId  the authenticated user's ID from the X-USER-ID header
+     * @return 201 Created with wallet details
      */
     @PostMapping
     public ResponseEntity<CreateWalletResponse> createWallet(@Valid @RequestBody CreateWalletRequest request,
@@ -46,6 +55,10 @@ public class WalletController {
 
     /**
      * Adds funds to an existing wallet.
+     *
+     * @param request the top-up request with wallet ID and amount
+     * @param userId  the authenticated user's ID from the X-USER-ID header
+     * @return 200 OK with updated balance information
      */
     @PostMapping("/topup")
     public ResponseEntity<TopUpWalletResponse> topUpWallet(@Valid @RequestBody TopUpWalletRequest request,
@@ -56,6 +69,10 @@ public class WalletController {
 
     /**
      * Transfers funds between two wallets.
+     *
+     * @param request     the transfer request with recipient and amount details
+     * @param payerUserId the authenticated user's ID from the X-USER-ID header
+     * @return 200 OK with transfer confirmation details
      */
     @PostMapping("/transfer")
     public ResponseEntity<TransferResponse> transfer(@Valid @RequestBody TransferRequest request,
@@ -66,6 +83,10 @@ public class WalletController {
 
     /**
      * Returns the current wallet balance for the authenticated user.
+     *
+     * @param walletId the ID of the wallet to check
+     * @param userId   the authenticated user's ID from the X-USER-ID header
+     * @return 200 OK with current balance and currency
      */
     @GetMapping("/{walletId}/balance")
     public ResponseEntity<GetBalanceResponse> getBalance(@PathVariable("walletId") UUID walletId,
@@ -102,6 +123,11 @@ public class WalletController {
      * Part of the two-phase commit pattern for payment processing. Moves funds
      * from available balance to reserved balance.
      * </p>
+     *
+     * @param userId   the authenticated user's ID from the X-USER-ID header
+     * @param walletId the ID of the wallet to reserve funds from
+     * @param request  the reservation request with amount and payment details
+     * @return 201 Created with reservation transaction ID and remaining balance
      */
     @PostMapping("/{walletId}/reserve")
     public ResponseEntity<ReserveFundsResponse> reserveFunds(@RequestHeader(HttpHeaders.X_USER_ID) String userId,
@@ -117,6 +143,11 @@ public class WalletController {
      * Completes the two-phase commit by finalizing the reservation and
      * deducting funds from the wallet balance.
      * </p>
+     *
+     * @param request  the confirmation request with wallet transaction ID
+     * @param walletId the ID of the wallet with reserved funds
+     * @param userId   the authenticated user's ID from the X-USER-ID header
+     * @return 200 OK with confirmation message
      */
     @PostMapping("/{walletId}/confirm")
     public ResponseEntity<ConfirmReservationResponse> confirmReservation(@Valid @RequestBody ConfirmReservationRequest request,
@@ -133,6 +164,11 @@ public class WalletController {
      * Rolls back the two-phase commit by releasing reserved funds back
      * to available balance.
      * </p>
+     *
+     * @param request  the cancellation request with wallet transaction ID
+     * @param walletId the ID of the wallet with reserved funds
+     * @param userId   the authenticated user's ID from the X-USER-ID header
+     * @return 200 OK with cancellation confirmation message
      */
     @PostMapping("/{walletId}/cancel")
     public ResponseEntity<CancelReservationResponse> cancelReservation(@Valid @RequestBody CancelReservationRequest request,

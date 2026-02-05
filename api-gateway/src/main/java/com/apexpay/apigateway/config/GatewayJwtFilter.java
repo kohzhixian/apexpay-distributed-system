@@ -50,11 +50,29 @@ public class GatewayJwtFilter implements WebFilter {
     private static final AntPathMatcher pathMatcher = new AntPathMatcher();
     private final PublicKey publicKey;
 
+    /**
+     * Constructs a new GatewayJwtFilter with the RSA public key for JWT validation.
+     *
+     * @param publicKey the resource containing the RSA public key in PEM format
+     */
     public GatewayJwtFilter(
             Resource publicKey) {
         this.publicKey = loadPublicKey(publicKey);
     }
 
+    /**
+     * Filters incoming requests by validating JWT tokens and propagating user identity.
+     * <p>
+     * For public endpoints, requests pass through without authentication.
+     * For protected endpoints, validates the JWT token from cookie or Authorization header,
+     * extracts user claims, and adds X-User-* headers for downstream services.
+     * </p>
+     *
+     * @param exchange the current server exchange
+     * @param chain    the filter chain to delegate to
+     * @return a Mono that completes when request processing is done
+     * @throws UnauthorizedException if token is missing, invalid, or expired
+     */
     @Override
     @NullMarked
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
@@ -185,6 +203,17 @@ public class GatewayJwtFilter implements WebFilter {
                 .getPayload();
     }
 
+    /**
+     * Loads and parses an RSA public key from a PEM-formatted resource.
+     * <p>
+     * Strips PEM headers/footers and decodes the Base64 content to create
+     * the PublicKey object used for JWT signature verification.
+     * </p>
+     *
+     * @param resource the resource containing the PEM-formatted public key
+     * @return the parsed RSA public key
+     * @throws IllegalStateException if the key cannot be loaded or parsed
+     */
     private PublicKey loadPublicKey(Resource resource) {
         // prevents file desciptor leaks for classpath resources and connection leaks
         try (InputStream inputStream = resource.getInputStream()) {

@@ -17,6 +17,7 @@ import com.apexpay.payment_service.dto.InitiatePaymentRequest;
 import com.apexpay.payment_service.dto.InitiatePaymentResponse;
 import com.apexpay.payment_service.entity.PaymentMethod;
 import com.apexpay.payment_service.entity.Payments;
+import com.apexpay.payment_service.helper.PaymentRecoveryHelper;
 import com.apexpay.payment_service.repository.PaymentRepository;
 import com.apexpay.payment_service.repository.WalletClient;
 import org.slf4j.Logger;
@@ -59,21 +60,25 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentProviderClient paymentProviderClient;
     private final PaymentMethodService paymentMethodService;
+    private final PaymentRecoveryHelper paymentRecoveryHelper;
 
     /**
      * Constructs the PaymentService with required dependencies.
      *
-     * @param walletClient          Feign client for wallet service communication
-     * @param paymentRepository     repository for payment persistence
-     * @param paymentProviderClient client for external payment provider
-     * @param paymentMethodService  service for payment method operations
+     * @param walletClient           Feign client for wallet service communication
+     * @param paymentRepository      repository for payment persistence
+     * @param paymentProviderClient  client for external payment provider
+     * @param paymentMethodService   service for payment method operations
+     * @param paymentRecoveryHelper  helper for handling race condition recovery
      */
     public PaymentService(WalletClient walletClient, PaymentRepository paymentRepository,
-                          PaymentProviderClient paymentProviderClient, PaymentMethodService paymentMethodService) {
+                          PaymentProviderClient paymentProviderClient, PaymentMethodService paymentMethodService,
+                          PaymentRecoveryHelper paymentRecoveryHelper) {
         this.walletClient = walletClient;
         this.paymentRepository = paymentRepository;
         this.paymentProviderClient = paymentProviderClient;
         this.paymentMethodService = paymentMethodService;
+        this.paymentRecoveryHelper = paymentRecoveryHelper;
     }
 
     /**
@@ -124,24 +129,25 @@ public class PaymentService {
                     newPayment.getVersion(), true);
 
         } catch (DataIntegrityViolationException e) {
-            // Race condition: another thread created payment between check and insert
+            // Race condition: another thread created payment between check and insert.
+            // IMPORTANT: After DataIntegrityViolationException, the current transaction's
+            // Hibernate Session is corrupted and marked for rollback. We cannot perform
+            // further database operations in this transaction. The recovery is delegated
+            // to PaymentRecoveryHelper which runs in a REQUIRES_NEW transaction.
             logger.info("Concurrent payment creation detected for clientRequestId: {}", request.clientRequestId());
 
-            Payments existing = paymentRepository
-                    .findByClientRequestIdAndUserId(request.clientRequestId(), userUuid)
-                    .orElseThrow(() -> new BusinessException(
-                            ErrorCode.INTERNAL_ERROR,
-                            ErrorMessages.PAYMENT_CREATION_FAILED));
+            Payments recovered = paymentRecoveryHelper.recoverFromRaceCondition(
+                    request.clientRequestId(), userUuid, request);
 
-            // Handle race condition with expired payment
-            if (existing.getStatus() == PaymentStatusEnum.EXPIRED) {
-                Payments reusedPayment = resetExpiredPayment(existing, request);
-                return new InitiatePaymentResponse(ResponseMessages.PAYMENT_INITIATED, reusedPayment.getId(),
-                        reusedPayment.getVersion(), true);
-            }
+            // Check if the recovered payment was reset from expired (new vs existing)
+            boolean isNewPayment = recovered.getStatus() == PaymentStatusEnum.INITIATED
+                    && recovered.getProviderTransactionId() == null;
 
-            return new InitiatePaymentResponse(ResponseMessages.RETURNING_EXISTING_PAYMENT, existing.getId(),
-                    existing.getVersion(), false);
+            return new InitiatePaymentResponse(
+                    isNewPayment ? ResponseMessages.PAYMENT_INITIATED : ResponseMessages.RETURNING_EXISTING_PAYMENT,
+                    recovered.getId(),
+                    recovered.getVersion(),
+                    isNewPayment);
         }
     }
 

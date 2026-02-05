@@ -27,6 +27,11 @@ public class PaymentMethodService {
 
     private final PaymentMethodRepository paymentMethodRepository;
 
+    /**
+     * Constructs a new PaymentMethodService with the required repository.
+     *
+     * @param paymentMethodRepository the repository for payment method operations
+     */
     public PaymentMethodService(PaymentMethodRepository paymentMethodRepository) {
         this.paymentMethodRepository = paymentMethodRepository;
     }
@@ -99,7 +104,13 @@ public class PaymentMethodService {
 
     /**
      * Maps PaymentMethod entities to response DTOs.
-     * The first item in the list is marked as the default.
+     * <p>
+     * The first item in the list (most recently used) is marked as the default.
+     * Returns an empty list if no payment methods exist.
+     * </p>
+     *
+     * @param paymentMethods the list of payment method entities to map
+     * @return list of payment method response DTOs with default flag set
      */
     private List<PaymentMethodResponse> mapToResponses(List<PaymentMethod> paymentMethods) {
         if (paymentMethods.isEmpty()) {

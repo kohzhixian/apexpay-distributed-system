@@ -62,6 +62,15 @@ public class AuthController {
         return ResponseEntity.ok(loginResponse);
     }
 
+    /**
+     * Refreshes the access token using a valid refresh token.
+     * Implements refresh token rotation: issues new access and refresh tokens,
+     * and invalidates the old refresh token.
+     *
+     * @param request  the HTTP request containing the refresh token cookie
+     * @param response the HTTP response for setting new token cookies
+     * @return refresh confirmation with HTTP 200 status
+     */
     @PostMapping("/refresh")
     public ResponseEntity<@NonNull RefreshResponse> refresh(HttpServletRequest request, HttpServletResponse response) {
         RefreshResponse refreshResponse = authService.refresh(request, response);
