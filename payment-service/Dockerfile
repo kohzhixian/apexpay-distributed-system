@@ -2,14 +2,8 @@
 # Build from project root: docker build -f payment-service/Dockerfile -t payment-service .
 
 # Stage 1: Build
-FROM eclipse-temurin:21-jdk AS builder
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
-
-# Install Maven
-RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
-
-# Copy root pom
-COPY pom.xml .
 
 # Copy common module (shared dependency)
 COPY common/pom.xml common/pom.xml
@@ -19,9 +13,10 @@ COPY common/src common/src
 COPY payment-service/pom.xml payment-service/pom.xml
 COPY payment-service/src payment-service/src
 
-# Build common module first, then payment-service
-RUN mvn clean install -pl common -DskipTests -B
-RUN mvn clean package -pl payment-service -DskipTests -B
+# Build common first (install to local Maven repo), then payment-service.
+# We build by module POM to avoid requiring the root multi-module reactor.
+RUN mvn -f common/pom.xml -DskipTests install -B
+RUN mvn -f payment-service/pom.xml -DskipTests package -B
 
 # Stage 2: Runtime
 FROM eclipse-temurin:21-jre
@@ -39,10 +34,6 @@ USER apexpay
 
 # Expose port
 EXPOSE 8083
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8083/actuator/health || exit 1
 
 # Run with production profile
 ENTRYPOINT ["java", "-jar", "app.jar", "--spring.profiles.active=prod"]

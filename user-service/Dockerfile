@@ -2,14 +2,8 @@
 # Build from project root: docker build -f user-service/Dockerfile -t user-service .
 
 # Stage 1: Build
-FROM eclipse-temurin:21-jdk AS builder
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
-
-# Install Maven
-RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
-
-# Copy root pom
-COPY pom.xml .
 
 # Copy common module (shared dependency)
 COPY common/pom.xml common/pom.xml
@@ -19,9 +13,10 @@ COPY common/src common/src
 COPY user-service/pom.xml user-service/pom.xml
 COPY user-service/src user-service/src
 
-# Build common module first, then user-service
-RUN mvn clean install -pl common -DskipTests -B
-RUN mvn clean package -pl user-service -DskipTests -B
+# Build common first (install to local Maven repo), then user-service.
+# We build by module POM to avoid requiring the root multi-module reactor.
+RUN mvn -f common/pom.xml -DskipTests install -B
+RUN mvn -f user-service/pom.xml -DskipTests package -B
 
 # Stage 2: Runtime
 FROM eclipse-temurin:21-jre
@@ -39,10 +34,6 @@ USER apexpay
 
 # Expose port
 EXPOSE 8081
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8081/actuator/health || exit 1
 
 # Run with production profile
 ENTRYPOINT ["java", "-jar", "app.jar", "--spring.profiles.active=prod"]
