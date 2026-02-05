@@ -7,6 +7,7 @@ import com.apexpay.common.dto.CancelReservationRequest;
 import com.apexpay.common.dto.ConfirmReservationRequest;
 import com.apexpay.common.dto.ReserveFundsRequest;
 import com.apexpay.common.dto.ReserveFundsResponse;
+import com.apexpay.common.enums.CurrencyEnum;
 import com.apexpay.common.exception.BusinessException;
 import com.apexpay.common.exception.ErrorCode;
 import com.apexpay.wallet_service.client.PaymentServiceClient;
@@ -39,6 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -587,5 +590,36 @@ public class WalletService {
                                                 wt.getTransactionType() == TransactionTypeEnum.CREDIT,
                                                 wt.getStatus()))
                                 .toList();
+        }
+
+        /**
+         * Retrieves monthly summary of income and spending for a user.
+         * <p>
+         * Calculates total CREDIT (income) and DEBIT (spending) amounts for the
+         * current month across all user wallets. Only includes COMPLETED transactions.
+         * </p>
+         *
+         * @param userId the authenticated user's ID
+         * @return monthly summary with income, spending, and currency
+         */
+        @Transactional(readOnly = true)
+        public GetMonthlySummaryResponse getMonthlySummary(String userId) {
+                UUID userUuid = walletHelper.parseUserId(userId);
+
+                // Calculate current month boundaries in UTC
+                YearMonth currentMonth = YearMonth.now(ZoneOffset.UTC);
+                Instant startOfMonth = currentMonth.atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+                Instant startOfNextMonth = currentMonth.plusMonths(1).atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+                BigDecimal income = walletTransactionRepository.sumAmountByUserIdAndTypeAndDateRange(
+                                userUuid, TransactionTypeEnum.CREDIT, startOfMonth, startOfNextMonth);
+
+                BigDecimal spending = walletTransactionRepository.sumAmountByUserIdAndTypeAndDateRange(
+                                userUuid, TransactionTypeEnum.DEBIT, startOfMonth, startOfNextMonth);
+
+                logger.info("Monthly summary retrieved. UserId: {}, Month: {}, Income: {}, Spending: {}",
+                                userId, currentMonth, income, spending);
+
+                return new GetMonthlySummaryResponse(income, spending, CurrencyEnum.SGD);
         }
 }

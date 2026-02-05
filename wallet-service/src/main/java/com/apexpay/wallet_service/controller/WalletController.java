@@ -183,4 +183,17 @@ public class WalletController {
         List<GetRecentWalletTransactionsResponse> response = walletService.getRecentWalletTransactions(userId);
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * Retrieves monthly summary of income and spending for the current month.
+     *
+     * @param userId the authenticated user's ID from gateway
+     * @return 200 OK with income, spending, and currency
+     */
+    @GetMapping("/stats/monthly-summary")
+    public ResponseEntity<GetMonthlySummaryResponse> getMonthlySummary(
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        GetMonthlySummaryResponse response = walletService.getMonthlySummary(userId);
+        return ResponseEntity.ok(response);
+    }
 }
