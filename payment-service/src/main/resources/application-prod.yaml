@@ -23,7 +23,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
 server:
-  port: ${SERVER_PORT:8083}
+  port: ${PORT:8083}
 
 # Disable Eureka for production (using direct URLs)
 eureka:
