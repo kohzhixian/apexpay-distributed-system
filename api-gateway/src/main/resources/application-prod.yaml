@@ -1,0 +1,69 @@
+server:
+  port: ${SERVER_PORT:9000}
+
+spring:
+  application:
+    name: api-gateway
+  main:
+    banner-mode: OFF
+    web-application-type: reactive
+
+# Expose Gateway's own actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# Circuit Breaker configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      userserviceCB:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+      walletserviceCB:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+      paymentserviceCB:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+  timelimiter:
+    instances:
+      userserviceCB:
+        timeoutDuration: 10s
+      walletserviceCB:
+        timeoutDuration: 10s
+      paymentserviceCB:
+        timeoutDuration: 15s
+
+# Disable Eureka for production (using direct URLs)
+eureka:
+  client:
+    enabled: false
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    root: INFO
+
+apexpay:
+  jwt:
+    public-key: ${PUBLIC_KEY_PATH:classpath:keys/public.pem}
+  cors:
+    allowed-origin: ${FRONTEND_URL:http://localhost:5173}
+  services:
+    user-service-url: ${USER_SERVICE_URL}
+    wallet-service-url: ${WALLET_SERVICE_URL}
+    payment-service-url: ${PAYMENT_SERVICE_URL}

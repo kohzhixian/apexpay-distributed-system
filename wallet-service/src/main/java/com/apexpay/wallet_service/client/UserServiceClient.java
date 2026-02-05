@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  * Provides methods for retrieving contact details needed for wallet transfers.
  * </p>
  */
-@FeignClient(value = "userservice")
+@FeignClient(value = "userservice", url = "${apexpay.services.user-service-url:}")
 public interface UserServiceClient {
 
     /**

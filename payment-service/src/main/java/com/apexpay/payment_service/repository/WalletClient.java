@@ -21,7 +21,7 @@ import java.util.UUID;
  * the X-USER-ID header for authentication.
  * </p>
  */
-@FeignClient(value = "walletservice")
+@FeignClient(value = "walletservice", url = "${apexpay.services.wallet-service-url:}")
 public interface WalletClient {
 
     /**

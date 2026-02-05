@@ -47,8 +47,12 @@ Thumbs.db
 **/keys/*.pem
 **/keys/*.key
 
-# Scripts folder
-**/scripts/
+# Local scripts (keep project scripts tracked)
+# **/scripts/
 
 ### AI Context ###
 AI_CONTEXT.md
+
+### Deployment ###
+DEPLOYMENT.md
+env.template.json

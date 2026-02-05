@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: walletservice
+  main:
+    banner-mode: off
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  port: ${SERVER_PORT:8082}
+
+# Disable Eureka for production (using direct URLs)
+eureka:
+  client:
+    enabled: false
+
+# Feign configuration for direct service communication
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+        loggerLevel: BASIC
+
+apexpay:
+  services:
+    user-service-url: ${USER_SERVICE_URL}
+    payment-service-url: ${PAYMENT_SERVICE_URL}
+
+logging:
+  level:
+    root: INFO
+    com.apexpay: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: always
