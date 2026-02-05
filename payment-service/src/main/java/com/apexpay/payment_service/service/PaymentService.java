@@ -15,7 +15,9 @@ import com.apexpay.payment_service.client.provider.exception.PaymentProviderExce
 import com.apexpay.payment_service.client.provider.interfaces.PaymentProviderClient;
 import com.apexpay.payment_service.dto.InitiatePaymentRequest;
 import com.apexpay.payment_service.dto.InitiatePaymentResponse;
+import com.apexpay.payment_service.entity.PaymentMethod;
 import com.apexpay.payment_service.entity.Payments;
+import com.apexpay.payment_service.helper.PaymentRecoveryHelper;
 import com.apexpay.payment_service.repository.PaymentRepository;
 import com.apexpay.payment_service.repository.WalletClient;
 import org.slf4j.Logger;
@@ -57,19 +59,26 @@ public class PaymentService {
     private final WalletClient walletClient;
     private final PaymentRepository paymentRepository;
     private final PaymentProviderClient paymentProviderClient;
+    private final PaymentMethodService paymentMethodService;
+    private final PaymentRecoveryHelper paymentRecoveryHelper;
 
     /**
      * Constructs the PaymentService with required dependencies.
      *
-     * @param walletClient          Feign client for wallet service communication
-     * @param paymentRepository     repository for payment persistence
-     * @param paymentProviderClient client for external payment provider
+     * @param walletClient           Feign client for wallet service communication
+     * @param paymentRepository      repository for payment persistence
+     * @param paymentProviderClient  client for external payment provider
+     * @param paymentMethodService   service for payment method operations
+     * @param paymentRecoveryHelper  helper for handling race condition recovery
      */
     public PaymentService(WalletClient walletClient, PaymentRepository paymentRepository,
-                          PaymentProviderClient paymentProviderClient) {
+                          PaymentProviderClient paymentProviderClient, PaymentMethodService paymentMethodService,
+                          PaymentRecoveryHelper paymentRecoveryHelper) {
         this.walletClient = walletClient;
         this.paymentRepository = paymentRepository;
         this.paymentProviderClient = paymentProviderClient;
+        this.paymentMethodService = paymentMethodService;
+        this.paymentRecoveryHelper = paymentRecoveryHelper;
     }
 
     /**
@@ -77,8 +86,9 @@ public class PaymentService {
      *
      * <p>
      * This method is idempotent - if a payment with the same clientRequestId
-     * already exists for the user, returns the existing payment instead of creating
-     * a duplicate.
+     * already exists for the user (and is not expired), returns the existing payment
+     * instead of creating a duplicate. Expired payments are ignored, allowing users
+     * to create a new payment with the same clientRequestId.
      *
      * @param request the payment initiation request containing amount, currency,
      *                walletId, etc.
@@ -91,12 +101,21 @@ public class PaymentService {
         UUID userUuid = UUID.fromString(userId);
 
         try {
-            // Check if payment already exists
+            // Check if payment already exists (including expired to handle reuse)
             Optional<Payments> existingPayment = paymentRepository
                     .findByClientRequestIdAndUserId(request.clientRequestId(), userUuid);
 
             if (existingPayment.isPresent()) {
                 Payments existing = existingPayment.get();
+
+                // If payment is expired, reuse it by resetting fields
+                if (existing.getStatus() == PaymentStatusEnum.EXPIRED) {
+                    Payments reusedPayment = resetExpiredPayment(existing, request);
+                    return new InitiatePaymentResponse(ResponseMessages.PAYMENT_INITIATED, reusedPayment.getId(),
+                            reusedPayment.getVersion(), true);
+                }
+
+                // Non-expired payment exists - return it (idempotency)
                 logger.info("Duplicate payment request detected. ClientRequestId: {}, PaymentId: {}",
                         request.clientRequestId(), existing.getId());
                 return new InitiatePaymentResponse(ResponseMessages.RETURNING_EXISTING_PAYMENT, existing.getId(),
@@ -110,17 +129,25 @@ public class PaymentService {
                     newPayment.getVersion(), true);
 
         } catch (DataIntegrityViolationException e) {
-            // Race condition: another thread created payment between check and insert
+            // Race condition: another thread created payment between check and insert.
+            // IMPORTANT: After DataIntegrityViolationException, the current transaction's
+            // Hibernate Session is corrupted and marked for rollback. We cannot perform
+            // further database operations in this transaction. The recovery is delegated
+            // to PaymentRecoveryHelper which runs in a REQUIRES_NEW transaction.
             logger.info("Concurrent payment creation detected for clientRequestId: {}", request.clientRequestId());
 
-            Payments existing = paymentRepository
-                    .findByClientRequestIdAndUserId(request.clientRequestId(), userUuid)
-                    .orElseThrow(() -> new BusinessException(
-                            ErrorCode.INTERNAL_ERROR,
-                            ErrorMessages.PAYMENT_CREATION_FAILED));
+            Payments recovered = paymentRecoveryHelper.recoverFromRaceCondition(
+                    request.clientRequestId(), userUuid, request);
 
-            return new InitiatePaymentResponse(ResponseMessages.RETURNING_EXISTING_PAYMENT, existing.getId(),
-                    existing.getVersion(), false);
+            // Check if the recovered payment was reset from expired (new vs existing)
+            boolean isNewPayment = recovered.getStatus() == PaymentStatusEnum.INITIATED
+                    && recovered.getProviderTransactionId() == null;
+
+            return new InitiatePaymentResponse(
+                    isNewPayment ? ResponseMessages.PAYMENT_INITIATED : ResponseMessages.RETURNING_EXISTING_PAYMENT,
+                    recovered.getId(),
+                    recovered.getVersion(),
+                    isNewPayment);
         }
     }
 
@@ -130,13 +157,14 @@ public class PaymentService {
      * <p>
      * Flow:
      * <ol>
+     * <li>Validate payment method exists and belongs to user</li>
      * <li>Acquire pessimistic lock on payment record</li>
      * <li>Validate payment exists and belongs to user</li>
      * <li>Validate payment is in INITIATED status</li>
      * <li>Reserve funds in user's wallet</li>
      * <li>Update payment status to PENDING</li>
      * <li>Charge external payment provider (with retries)</li>
-     * <li>On success: confirm reservation, update to SUCCESS</li>
+     * <li>On success: confirm reservation, update to SUCCESS, update lastUsedAt</li>
      * <li>On failure: cancel reservation, update to FAILED</li>
      * </ol>
      *
@@ -146,16 +174,21 @@ public class PaymentService {
      * in double-charging the user.
      * </p>
      *
-     * @param paymentId          the ID of the initiated payment
-     * @param userId             the authenticated user's ID
-     * @param paymentMethodToken token representing the payment method (card, etc.)
+     * @param paymentId       the ID of the initiated payment
+     * @param userId          the authenticated user's ID
+     * @param paymentMethodId the ID of the saved payment method to charge
      * @return response with payment status
      * @throws BusinessException if payment not found, unauthorized, invalid state,
      *                           or charge fails
      */
     @Transactional
-    public PaymentResponse processPayment(UUID paymentId, String userId, String paymentMethodToken) {
+    public PaymentResponse processPayment(UUID paymentId, String userId, UUID paymentMethodId) {
         UUID userUuid = UUID.fromString(userId);
+
+        // Validate payment method exists and belongs to user, get provider token
+        PaymentMethod paymentMethod = paymentMethodService.validatePaymentMethod(paymentMethodId, userId);
+        String paymentMethodToken = paymentMethod.getProviderToken();
+
         // find existing payment with pessimistic lock to prevent concurrent double-charging
         Payments paymentRecord = paymentRepository.findByIdWithLock(paymentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND, ErrorMessages.PAYMENT_NOT_FOUND));
@@ -213,8 +246,12 @@ public class PaymentService {
 
                 paymentRecord = updatePaymentToSuccess(paymentRecord, chargeResponse, walletTransactionId);
 
+                // Update lastUsedAt for the payment method (non-blocking)
+                updatePaymentMethodLastUsedSafely(paymentMethodId, userId);
+
                 return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.SUCCESS,
-                        ResponseMessages.PAYMENT_SUCCEEDED);
+                        ResponseMessages.PAYMENT_SUCCEEDED, paymentRecord.getAmount(), paymentRecord.getCurrency(),
+                        paymentRecord.getCreatedDate(), paymentRecord.getUpdatedDate());
             }
 
             // Handle PENDING status - payment submitted but not yet confirmed
@@ -226,7 +263,8 @@ public class PaymentService {
                 logger.info("Payment {} is pending. ProviderTransactionId: {}, WalletTransactionId: {}",
                         paymentRecord.getId(), chargeResponse.providerTransactionId(), walletTransactionId);
                 return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.PENDING,
-                        ResponseMessages.PAYMENT_PENDING);
+                        ResponseMessages.PAYMENT_PENDING, paymentRecord.getAmount(), paymentRecord.getCurrency(),
+                        paymentRecord.getCreatedDate(), paymentRecord.getUpdatedDate());
             }
 
             // handle failure - charge returned failed response
@@ -234,7 +272,9 @@ public class PaymentService {
             cancelReservationSafely(walletTransactionId, userId, paymentRecord.getWalletId());
             // Update payment status and return response (no exception to avoid rollback)
             paymentRecord = updatePaymentToFailure(paymentRecord, chargeResponse.failureCode(), chargeResponse.failureMessage());
-            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, chargeResponse.failureMessage());
+            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, chargeResponse.failureMessage(),
+                    paymentRecord.getAmount(), paymentRecord.getCurrency(), paymentRecord.getCreatedDate(),
+                    paymentRecord.getUpdatedDate());
         } catch (PaymentProviderException e) {
             // Handle exception - cancel reservation and update status
             if (walletTransactionId != null) {
@@ -242,7 +282,24 @@ public class PaymentService {
             }
             // Update payment status and return response (no exception to avoid rollback)
             paymentRecord = updatePaymentToFailure(paymentRecord, e.getFailureCode(), e.getMessage());
-            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, e.getMessage());
+            return new PaymentResponse(paymentRecord.getId(), PaymentStatusEnum.FAILED, e.getMessage(),
+                    paymentRecord.getAmount(), paymentRecord.getCurrency(), paymentRecord.getCreatedDate(),
+                    paymentRecord.getUpdatedDate());
+        }
+    }
+
+    /**
+     * Safely updates the lastUsedAt timestamp for a payment method without throwing exceptions.
+     * This is a non-critical operation that shouldn't affect the payment success response.
+     *
+     * @param paymentMethodId the payment method ID to update
+     * @param userId          the user ID (for ownership verification)
+     */
+    private void updatePaymentMethodLastUsedSafely(UUID paymentMethodId, String userId) {
+        try {
+            paymentMethodService.markAsUsed(paymentMethodId, userId);
+        } catch (Exception e) {
+            logger.warn("Failed to update lastUsedAt for payment method {}: {}", paymentMethodId, e.getMessage());
         }
     }
 
@@ -277,7 +334,8 @@ public class PaymentService {
         // Only check status for PENDING payments
         if (payment.getStatus() != PaymentStatusEnum.PENDING) {
             return new PaymentResponse(payment.getId(), payment.getStatus(),
-                    String.format("Payment is already in %s status.", payment.getStatus()));
+                    String.format("Payment is already in %s status.", payment.getStatus()),
+                    payment.getAmount(), payment.getCurrency(), payment.getCreatedDate(), payment.getUpdatedDate());
         }
 
         // Must have provider transaction ID to query provider
@@ -316,11 +374,13 @@ public class PaymentService {
 
                 payment = updatePaymentToSuccess(payment, providerResponse, walletTxId);
                 return new PaymentResponse(payment.getId(), PaymentStatusEnum.SUCCESS,
-                        ResponseMessages.PAYMENT_SUCCEEDED);
+                        ResponseMessages.PAYMENT_SUCCEEDED, payment.getAmount(), payment.getCurrency(),
+                        payment.getCreatedDate(), payment.getUpdatedDate());
             } else if (providerResponse.status() == ProviderTransactionStatus.PENDING) {
                 // Still pending
                 return new PaymentResponse(payment.getId(), PaymentStatusEnum.PENDING,
-                        ResponseMessages.PAYMENT_PENDING);
+                        ResponseMessages.PAYMENT_PENDING, payment.getAmount(), payment.getCurrency(),
+                        payment.getCreatedDate(), payment.getUpdatedDate());
             } else {
                 // Payment failed - cancel reservation and update status
                 UUID walletTxId = payment.getWalletTransactionId();
@@ -334,7 +394,8 @@ public class PaymentService {
                 payment = updatePaymentToFailure(payment, providerResponse.failureCode(),
                         providerResponse.failureMessage());
                 return new PaymentResponse(payment.getId(), PaymentStatusEnum.FAILED,
-                        providerResponse.failureMessage());
+                        providerResponse.failureMessage(), payment.getAmount(), payment.getCurrency(),
+                        payment.getCreatedDate(), payment.getUpdatedDate());
             }
         } catch (PaymentProviderException e) {
             logger.error("Error checking payment status with provider. PaymentId: {}", paymentId, e);
@@ -490,6 +551,29 @@ public class PaymentService {
                 .build();
 
         return paymentRepository.save(newPayment);
+    }
+
+    /**
+     * Resets an expired payment for reuse with new request data.
+     * Clears all provider-related fields and resets status to INITIATED.
+     *
+     * @param existing the expired payment to reset
+     * @param request  the new payment request with updated data
+     * @return the saved payment entity
+     */
+    private Payments resetExpiredPayment(Payments existing, InitiatePaymentRequest request) {
+        logger.info("Reusing expired payment. ClientRequestId: {}, PaymentId: {}",
+                request.clientRequestId(), existing.getId());
+        existing.setStatus(PaymentStatusEnum.INITIATED);
+        existing.setAmount(request.amount());
+        existing.setCurrency(request.currency());
+        existing.setWalletId(request.walletId());
+        existing.setProviderTransactionId(null);
+        existing.setProvider(null);
+        existing.setWalletTransactionId(null);
+        existing.setFailureCode(null);
+        existing.setFailureMessage(null);
+        return paymentRepository.save(existing);
     }
 
     /**

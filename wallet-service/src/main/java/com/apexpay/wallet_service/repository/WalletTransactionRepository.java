@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,4 +54,38 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
      */
     @Query("SELECT wt FROM WalletTransactions wt WHERE wt.referenceId = :referenceId AND wt.referenceType = :referenceType")
     Optional<WalletTransactions> findByReferenceIdAndReferenceType(@Param("referenceId") String referenceId, @Param("referenceType") com.apexpay.wallet_service.enums.ReferenceTypeEnum referenceType);
+
+    /**
+     * Finds recent transactions across all wallets for a user.
+     *
+     * @param userId   the user ID to query
+     * @param pageable pagination parameters (use for limit and sort)
+     * @return list of recent transactions for the user
+     */
+    @Query("SELECT wt FROM WalletTransactions wt WHERE wt.wallet.userId = :userId")
+    List<WalletTransactions> findRecentByUserId(@Param("userId") UUID userId, Pageable pageable);
+
+    /**
+     * Sums completed transaction amounts by type for a user within a date range.
+     *
+     * @param userId          the user ID to query
+     * @param transactionType the transaction type (CREDIT or DEBIT)
+     * @param startDate       the start of the date range (inclusive)
+     * @param endDate         the end of the date range (exclusive)
+     * @return sum of amounts, or null if no transactions found
+     */
+    @Query("""
+            SELECT COALESCE(SUM(wt.amount), 0)
+            FROM WalletTransactions wt
+            WHERE wt.wallet.userId = :userId
+              AND wt.transactionType = :transactionType
+              AND wt.status = com.apexpay.wallet_service.enums.WalletTransactionStatusEnum.COMPLETED
+              AND wt.createdDate >= :startDate
+              AND wt.createdDate < :endDate
+            """)
+    BigDecimal sumAmountByUserIdAndTypeAndDateRange(
+            @Param("userId") UUID userId,
+            @Param("transactionType") com.apexpay.wallet_service.enums.TransactionTypeEnum transactionType,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
 }

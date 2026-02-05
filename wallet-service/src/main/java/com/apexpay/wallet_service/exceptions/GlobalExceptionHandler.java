@@ -28,6 +28,10 @@ public class GlobalExceptionHandler {
 
     /**
      * Handles all BusinessException with ErrorCode.
+     *
+     * @param ex      the business exception containing error code and message
+     * @param request the HTTP request that triggered the exception
+     * @return error response with appropriate HTTP status
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<@NonNull ErrorResponse> handleBusinessException(BusinessException ex,
@@ -38,6 +42,10 @@ public class GlobalExceptionHandler {
 
     /**
      * Handles Spring's @Valid annotation validation failures.
+     *
+     * @param ex      the validation exception with field errors
+     * @param request the HTTP request that triggered the exception
+     * @return error response with validation error details
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<@NonNull ErrorResponse> handleValidation(MethodArgumentNotValidException ex,
@@ -52,6 +60,13 @@ public class GlobalExceptionHandler {
                 errorMessage, request);
     }
 
+    /**
+     * Handles Bean Validation constraint violations (e.g., @NotNull on path variables).
+     *
+     * @param ex      the constraint violation exception
+     * @param request the HTTP request that triggered the exception
+     * @return error response with validation error details
+     */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<@NonNull ErrorResponse> handleValidation(ConstraintViolationException ex, HttpServletRequest request) {
 
@@ -70,6 +85,10 @@ public class GlobalExceptionHandler {
 
     /**
      * Handles type mismatch exceptions (e.g., invalid UUID format in path variables).
+     *
+     * @param ex      the type mismatch exception with parameter details
+     * @param request the HTTP request that triggered the exception
+     * @return error response with parameter format error details
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<@NonNull ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
@@ -90,6 +109,10 @@ public class GlobalExceptionHandler {
 
     /**
      * Fallback handler for all other exceptions.
+     *
+     * @param ex      the unexpected exception
+     * @param request the HTTP request that triggered the exception
+     * @return generic internal server error response
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<@NonNull ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
@@ -98,7 +121,12 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Helper to build response using ErrorCode.
+     * Builds an error response using an ErrorCode enum.
+     *
+     * @param errorCode the error code containing HTTP status and code
+     * @param message   the error message to include
+     * @param request   the HTTP request for extracting the request URI
+     * @return ResponseEntity with the constructed ErrorResponse
      */
     private ResponseEntity<@NonNull ErrorResponse> buildResponse(ErrorCode errorCode, String message,
                                                                  HttpServletRequest request) {
@@ -112,7 +140,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Helper to build response using explicit HttpStatus.
+     * Builds an error response using explicit HTTP status and error details.
+     *
+     * @param status  the HTTP status code
+     * @param code    the application error code
+     * @param error   the error type/name
+     * @param message the error message to include
+     * @param request the HTTP request for extracting the request URI
+     * @return ResponseEntity with the constructed ErrorResponse
      */
     private ResponseEntity<@NonNull ErrorResponse> buildResponse(HttpStatus status, int code, String error,
                                                                  String message, HttpServletRequest request) {

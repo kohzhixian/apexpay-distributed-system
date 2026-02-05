@@ -50,6 +50,9 @@ public class WalletTransactions {
     @Enumerated(EnumType.STRING)
     private ReferenceTypeEnum referenceType;
 
+    @Column(name = "transaction_reference", unique = true, length = 20)
+    private String transactionReference;
+
     private String description;
 
     @Column(nullable = false, length = 25)

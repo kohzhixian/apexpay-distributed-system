@@ -365,28 +365,35 @@ apexpay-distributed-system/
 ├── discovery-server/            # Eureka server
 ├── payment-service/             # Payment processing
 │   └── src/main/java/.../
-│       ├── client/provider/     # Payment provider clients
+│       ├── client/provider/     # Payment provider clients & mock implementation
 │       ├── controller/          # REST endpoints
 │       ├── dto/                 # Request/Response DTOs
 │       ├── entity/              # JPA entities
-│       ├── enums/               # Payment enums
+│       ├── exception/           # Exception handlers
+│       ├── helper/              # Recovery helpers (race condition handling)
 │       ├── repository/          # Data access layer
 │       └── service/             # Business logic
 ├── user-service/                # User management & auth
 │   └── src/main/java/.../
+│       ├── constants/           # Auth-related constants
 │       ├── controller/          # REST endpoints
 │       ├── dto/                 # Request/Response DTOs
 │       ├── entity/              # JPA entities
+│       ├── exception/           # Exception handlers
 │       ├── repository/          # Data access layer
 │       ├── security/            # JWT & Spring Security
-│       └── service/             # Business logic
+│       ├── service/             # Business logic
+│       └── utils/               # Cookie utilities
 ├── wallet-service/              # Wallet management
 │   └── src/main/java/.../
+│       ├── client/              # Feign clients (user-service, payment-service)
 │       ├── config/              # Retry configuration
 │       ├── controller/          # REST endpoints
 │       ├── dto/                 # Request/Response DTOs
 │       ├── entity/              # JPA entities
 │       ├── enums/               # Wallet enums
+│       ├── exceptions/          # Exception handlers
+│       ├── helper/              # Transaction helpers & reference generation
 │       ├── repository/          # Data access layer
 │       └── service/             # Business logic
 └── pom.xml                      # Parent POM

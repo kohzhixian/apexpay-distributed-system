@@ -7,6 +7,7 @@ public final class ResponseMessages {
     // Wallet responses
     public static final String WALLET_CREATED = "Wallet created successfully.";
     public static final String WALLET_TOPUP_SUCCESS = "Wallet top up successfully.";
+    public static final String WALLET_NAME_UPDATED = "Wallet name updated successfully.";
     public static final String TRANSFER_SUCCESS = "Transfer made successfully.";
     public static final String RESERVATION_COMPLETED = "Wallet Reservation completed.";
     public static final String RESERVATION_ALREADY_COMPLETED = "Wallet Reservation already completed.";
@@ -14,7 +15,7 @@ public final class ResponseMessages {
     public static final String RESERVATION_ALREADY_CANCELLED = "Wallet Reservation already cancelled.";
     // Payment responses
     public static final String PAYMENT_INITIATED = "Payment initiated.";
-    public static final String RETURNING_EXISTING_PAYMENT = "Returning existing payment.";
+    public static final String RETURNING_EXISTING_PAYMENT = "A payment with this clientRequestId already exists. Returning existing payment for idempotency.";
     public static final String PAYMENT_SUCCEEDED = "Payment succeeded.";
     public static final String PAYMENT_PENDING = "Payment is pending. Status will be updated once confirmed by provider.";
     // Auth responses

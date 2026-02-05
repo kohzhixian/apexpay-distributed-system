@@ -21,11 +21,9 @@ import java.util.UUID;
  */
 public interface PaymentRepository extends JpaRepository<Payments, UUID> {
     /**
-     * Finds a payment by client request ID and user ID.
-     * <p>
-     * Used for idempotency checks to prevent duplicate payment creation
-     * when the same clientRequestId is submitted multiple times.
-     * </p>
+     * Finds a payment by client request ID and user ID, including all statuses.
+     * Used for idempotency checks and to detect expired payments that need to be
+     * reused when user retries with the same clientRequestId.
      *
      * @param clientRequestId the client-provided unique request identifier
      * @param userId          the user ID who owns the payment

@@ -15,12 +15,14 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -69,10 +71,10 @@ public class GlobalExceptionHandler {
         log.error("Feign client error: status={}, message={}", ex.status(), ex.getMessage());
 
         // Try to extract error details from response body
-        String errorMessage = extractErrorMessage(ex);
-        ErrorCode errorCode = mapFeignStatusToErrorCode(ex.status());
+        FeignErrorDetails errorDetails = extractErrorDetails(ex);
+        ErrorCode errorCode = errorDetails.errorCode().orElseGet(() -> mapFeignStatusToErrorCode(ex.status()));
 
-        return buildResponse(errorCode, errorMessage, request);
+        return buildResponse(errorCode, errorDetails.message(), request);
     }
 
     /**
@@ -124,58 +126,184 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles JSON parsing errors (e.g., invalid UUID format, wrong data types in request body).
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<@NonNull ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
+                                                                               HttpServletRequest request) {
+        String errorMessage = extractReadableErrorMessage(ex);
+        log.warn("Request body parsing failed: {}", errorMessage);
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED.getCode(),
+                "Invalid Request Body", errorMessage, request);
+    }
+
+    /**
+     * Extracts a user-friendly error message from HttpMessageNotReadableException.
+     */
+    private String extractReadableErrorMessage(HttpMessageNotReadableException ex) {
+        Throwable cause = ex.getCause();
+
+        // Handle Jackson InvalidFormatException (e.g., invalid UUID)
+        if (cause instanceof com.fasterxml.jackson.databind.exc.InvalidFormatException invalidFormat) {
+            String fieldName = invalidFormat.getPath().isEmpty() ? "field"
+                    : invalidFormat.getPath().get(invalidFormat.getPath().size() - 1).getFieldName();
+            Class<?> targetType = invalidFormat.getTargetType();
+            Object value = invalidFormat.getValue();
+
+            if (targetType == java.util.UUID.class) {
+                return String.format("Invalid UUID format for '%s': '%s' is not a valid UUID", fieldName, value);
+            }
+            return String.format("Invalid value for '%s': cannot convert '%s' to %s",
+                    fieldName, value, targetType.getSimpleName());
+        }
+
+        // Handle tools.jackson (Jackson 3.x) InvalidFormatException
+        if (cause != null && cause.getClass().getName().contains("InvalidFormatException")) {
+            String message = cause.getMessage();
+            if (message != null && message.contains("UUID")) {
+                return "Invalid UUID format in request body. Please provide a valid UUID (e.g., '550e8400-e29b-41d4-a716-446655440000')";
+            }
+            return "Invalid format in request body: " + message;
+        }
+
+        // Fallback to generic message
+        String message = ex.getMessage();
+        if (message != null && message.contains("UUID")) {
+            return "Invalid UUID format in request body. Please provide a valid UUID";
+        }
+        return "Malformed JSON request body";
+    }
+
+    /**
      * Fallback handler for all other exceptions.
+     * Also checks if the exception wraps a FeignException to handle wallet service errors.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<@NonNull ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
+        // Check if this exception wraps a FeignException (common with transaction proxies)
+        FeignException feignException = extractFeignException(ex);
+        if (feignException != null) {
+            log.warn("Found wrapped FeignException, delegating to FeignException handler");
+            return handleFeignException(feignException, request);
+        }
+
         log.error("Unexpected error: {}", ex.getMessage(), ex);
         return buildResponse(ErrorCode.INTERNAL_ERROR, ErrorMessages.UNEXPECTED_ERROR_OCCURRED, request);
     }
 
     /**
-     * Extracts error message from FeignException response body.
-     * Falls back to exception message if parsing fails.
+     * Extracts a FeignException from the exception chain if present.
      */
-    private String extractErrorMessage(FeignException ex) {
+    private FeignException extractFeignException(Throwable ex) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof FeignException feignEx) {
+                return feignEx;
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    /**
+     * Extracts error details (message and error code) from FeignException response body.
+     * Parses the standardized ErrorResponse format from other ApexPay services.
+     *
+     * @param ex the FeignException containing the error response
+     * @return FeignErrorDetails containing the extracted message and optional ErrorCode
+     */
+    private FeignErrorDetails extractErrorDetails(FeignException ex) {
         try {
             if (ex.responseBody().isPresent()) {
-                String body = StandardCharsets.UTF_8.decode(ex.responseBody().get()).toString();
+                String body = StandardCharsets.UTF_8.decode(ex.responseBody().get().duplicate()).toString();
+                log.debug("Feign error response body: {}", body);
+
                 JsonNode jsonNode = objectMapper.readTree(body);
 
-                // Try common error response fields
-                if (jsonNode.has("message")) {
-                    return jsonNode.get("message").asText();
+                // Extract message from standardized ErrorResponse format
+                String message = extractMessageFromJson(jsonNode);
+
+                // Try to map the code to our ErrorCode enum
+                Optional<ErrorCode> errorCode = extractErrorCodeFromJson(jsonNode);
+
+                if (message != null) {
+                    return new FeignErrorDetails(message, errorCode);
                 }
-                if (jsonNode.has("error")) {
-                    return jsonNode.get("error").asText();
-                }
-                return body;
             }
         } catch (Exception e) {
             log.debug("Failed to parse Feign error response: {}", e.getMessage());
         }
 
-        return switch (ex.status()) {
+        // Fallback to status-based messages
+        String fallbackMessage = switch (ex.status()) {
             case 400 -> "Bad request to wallet service";
             case 403 -> "Insufficient balance or access denied";
             case 404 -> "Wallet not found";
+            case 409 -> "Wallet operation conflict";
             case 503 -> "Wallet service unavailable";
-            default -> "Wallet service error: " + ex.getMessage();
+            default -> "Wallet service error";
         };
+        return new FeignErrorDetails(fallbackMessage, Optional.empty());
+    }
+
+    /**
+     * Extracts the error message from JSON response.
+     */
+    private String extractMessageFromJson(JsonNode jsonNode) {
+        // Try "message" field first (our standard ErrorResponse format)
+        if (jsonNode.has("message") && !jsonNode.get("message").isNull()) {
+            return jsonNode.get("message").asText();
+        }
+        // Fallback to "error" field
+        if (jsonNode.has("error") && !jsonNode.get("error").isNull()) {
+            return jsonNode.get("error").asText();
+        }
+        return null;
+    }
+
+    /**
+     * Extracts and maps the error code from JSON response to ErrorCode enum.
+     */
+    private Optional<ErrorCode> extractErrorCodeFromJson(JsonNode jsonNode) {
+        if (!jsonNode.has("code") || jsonNode.get("code").isNull()) {
+            return Optional.empty();
+        }
+
+        int code = jsonNode.get("code").asInt();
+        return mapCodeToErrorCode(code);
+    }
+
+    /**
+     * Maps numeric error codes from other services to ErrorCode enum.
+     */
+    private Optional<ErrorCode> mapCodeToErrorCode(int code) {
+        for (ErrorCode errorCode : ErrorCode.values()) {
+            if (errorCode.getCode() == code) {
+                return Optional.of(errorCode);
+            }
+        }
+        return Optional.empty();
     }
 
     /**
      * Maps Feign HTTP status codes to appropriate ErrorCodes.
+     * Used as fallback when error code cannot be extracted from response body.
      */
     private ErrorCode mapFeignStatusToErrorCode(int status) {
         return switch (status) {
             case 400 -> ErrorCode.VALIDATION_FAILED;
             case 403 -> ErrorCode.INSUFFICIENT_BALANCE;
             case 404 -> ErrorCode.WALLET_NOT_FOUND;
+            case 409 -> ErrorCode.CONCURRENT_MODIFICATION;
             case 503 -> ErrorCode.SERVICE_UNAVAILABLE;
             default -> ErrorCode.PAYMENT_PROCESSING_ERROR;
         };
     }
+
+    /**
+     * Record to hold extracted error details from Feign response.
+     */
+    private record FeignErrorDetails(String message, Optional<ErrorCode> errorCode) {}
 
     private String extractFieldName(Path propertyPath) {
         String fullPath = propertyPath.toString();
