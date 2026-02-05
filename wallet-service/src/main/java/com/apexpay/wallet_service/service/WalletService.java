@@ -39,6 +39,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
@@ -621,5 +622,59 @@ public class WalletService {
                                 userId, currentMonth, income, spending);
 
                 return new GetMonthlySummaryResponse(income, spending, CurrencyEnum.SGD);
+        }
+
+        /**
+         * Calculates the monthly growth percentage for a user's total balance.
+         * <p>
+         * Compares the current total balance against the reconstructed balance
+         * from the end of last month. Formula:
+         * ((currentBalance - lastMonthBalance) / lastMonthBalance) * 100
+         * </p>
+         * <p>
+         * If last month's balance was zero (new user), returns zero growth.
+         * </p>
+         *
+         * @param userId the authenticated user's ID
+         * @return monthly growth percentage (can be negative for decline)
+         */
+        @Transactional(readOnly = true)
+        public GetMonthlyGrowthResponse getMonthlyGrowth(String userId) {
+                UUID userUuid = walletHelper.parseUserId(userId);
+
+                // Get current total balance across all wallets
+                BigDecimal currentBalance = walletRepository.sumBalanceByUserId(userUuid);
+
+                // Calculate current month boundaries in UTC
+                YearMonth currentMonth = YearMonth.now(ZoneOffset.UTC);
+                Instant startOfMonth = currentMonth.atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+                Instant startOfNextMonth = currentMonth.plusMonths(1).atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+                // Get net transactions for current month (income - spending)
+                BigDecimal income = walletTransactionRepository.sumAmountByUserIdAndTypeAndDateRange(
+                                userUuid, TransactionTypeEnum.CREDIT, startOfMonth, startOfNextMonth);
+                BigDecimal spending = walletTransactionRepository.sumAmountByUserIdAndTypeAndDateRange(
+                                userUuid, TransactionTypeEnum.DEBIT, startOfMonth, startOfNextMonth);
+
+                BigDecimal netChangeThisMonth = income.subtract(spending);
+
+                // Reconstruct last month's ending balance
+                BigDecimal lastMonthBalance = currentBalance.subtract(netChangeThisMonth);
+
+                // Handle edge case: if last month balance was zero, return 0% growth
+                if (lastMonthBalance.compareTo(BigDecimal.ZERO) == 0) {
+                        logger.info("Monthly growth calculated. UserId: {}, Growth: 0% (no previous balance)", userId);
+                        return new GetMonthlyGrowthResponse(BigDecimal.ZERO);
+                }
+
+                // Calculate growth percentage: ((current - last) / last) * 100
+                BigDecimal growthPercentage = netChangeThisMonth
+                                .multiply(new BigDecimal("100"))
+                                .divide(lastMonthBalance, 2, RoundingMode.HALF_UP);
+
+                logger.info("Monthly growth calculated. UserId: {}, CurrentBalance: {}, LastMonthBalance: {}, Growth: {}%",
+                                userId, currentBalance, lastMonthBalance, growthPercentage);
+
+                return new GetMonthlyGrowthResponse(growthPercentage);
         }
 }

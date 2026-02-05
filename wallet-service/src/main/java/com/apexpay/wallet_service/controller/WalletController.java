@@ -232,4 +232,17 @@ public class WalletController {
         GetMonthlySummaryResponse response = walletService.getMonthlySummary(userId);
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * Retrieves monthly growth percentage comparing current balance to last month.
+     *
+     * @param userId the authenticated user's ID from gateway
+     * @return 200 OK with growth percentage
+     */
+    @GetMapping("/stats/monthly-growth")
+    public ResponseEntity<GetMonthlyGrowthResponse> getMonthlyGrowth(
+            @RequestHeader(HttpHeaders.X_USER_ID) String userId) {
+        GetMonthlyGrowthResponse response = walletService.getMonthlyGrowth(userId);
+        return ResponseEntity.ok(response);
+    }
 }

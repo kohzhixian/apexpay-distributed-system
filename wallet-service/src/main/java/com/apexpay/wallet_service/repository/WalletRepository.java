@@ -60,4 +60,13 @@ public interface WalletRepository extends JpaRepository<Wallets, UUID> {
      * @return list of wallets owned by the user
      */
     List<Wallets> findByUserId(UUID userId);
+
+    /**
+     * Calculates the total balance across all wallets for a user.
+     *
+     * @param userId the user ID
+     * @return sum of all wallet balances, or 0 if no wallets exist
+     */
+    @Query("SELECT COALESCE(SUM(w.balance), 0) FROM Wallets w WHERE w.userId = :userId")
+    BigDecimal sumBalanceByUserId(@Param("userId") UUID userId);
 }
